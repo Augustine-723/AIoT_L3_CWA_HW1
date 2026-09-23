@@ -99,8 +99,8 @@ def load_demo_data():
 
 def create_folium_map(overview_df: pd.DataFrame):
     """建立包含臺灣各縣市氣溫標記的 Folium 地圖"""
-    # 臺灣地理中心 (南投附近)
-    m = folium.Map(location=[23.8, 120.9], zoom_start=7, tiles="CartoDB positron")
+    # 臺灣地理中心 (南投附近)，使用預設 OpenStreetMap 圖資
+    m = folium.Map(location=[23.8, 120.9], zoom_start=7, tiles="OpenStreetMap")
 
     # 建立縣市對應字典
     loc_coord_map = {item["name"]: (item["lat"], item["lon"]) for item in TAIWAN_LOCATIONS}
