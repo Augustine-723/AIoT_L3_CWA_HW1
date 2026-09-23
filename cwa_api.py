@@ -263,7 +263,7 @@ def generate_sample_forecasts() -> List[Dict[str, Any]]:
             maxt = round(base_maxt + (0.8 if slot_idx == 0 else 0), 1)
 
             samples.append({
-                "location_name": f"{loc['name']} - 測站",
+                "location_name": loc["name"],
                 "start_time": st,
                 "end_time": et,
                 "weather_condition": cond,
