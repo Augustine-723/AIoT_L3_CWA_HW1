@@ -1,0 +1,9 @@
+# Vercel Deployment Ignore
+# Ignore local Streamlit and database files to keep deployment fast and ultra-lightweight
+.venv/
+__pycache__/
+*.pyc
+data.db
+requirements-streamlit.txt
+.env
+.env.example

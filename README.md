@@ -5,9 +5,13 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![Vercel Ready](https://img.shields.io/badge/Vercel-Deployed-black?logo=vercel)](https://vercel.com)
 
+![系統成果展示 (System Preview)](assets/preview.png)
+
 本專案為 **AIoT L3 HW1** 作業成果，參考 [taiwan-weather-map.vercel.app](https://taiwan-weather-map.vercel.app/) 的視覺設計，打造**類 Windy 風格高質感深色玻璃擬態氣象觀測系統**。
 
-整合**中央氣象署 (CWA) 開放資料平臺 API (主推 `O-A0003-001` 自動氣象站即時觀測資料)**、**SQLite 本地資料庫**、**Streamlit 互動式 Web App**、**Folium / Leaflet 地圖地理視覺化 (360+ 測站 GPS 精確定位)**、**Plotly 霓虹動態氣溫折線圖**，並支援 **GitHub Actions CI 自動化工作流** 與 **Vercel / Streamlit Cloud 雲端一鍵部署**。
+具備**雙架構雙平臺支援**：
+1. **本機完整版 (Streamlit + SQLite)**：保留原生作業要求之 `app.py`、`database.py` 與 `data.db`，支援完整 SQL 條件過濾、互動圖表、CSV 匯出與單元測試。
+2. **Vercel 雲端原生版 (HTML5 + Leaflet + Chart.js + Serverless)**：透過 Serverless 代理 API (`api/weather.py`) 安全串接 CWA API，前端嚴格隱藏 API 金鑰，具備響應式深灰藍地圖、發光測站標記與即時氣象儀表板。
 
 ---
 
@@ -16,18 +20,22 @@
 ```mermaid
 flowchart TD
     subgraph CWA["中央氣象署 (CWA) 開放平臺"]
-        A1["O-A0003-001<br/>自動氣象站即時資料<br/>(360+ 測站 / GPS)"]
+        A1["O-A0003-001<br/>自動氣象站即時資料<br/>(360+ 測站 / GPS 精確座標)"]
         A2["F-C0032-001<br/>36小時一般天氣預報"]
     end
 
-    subgraph Core["資料解析與持久化層"]
+    subgraph Core["資料解析與持久化層 (本機端)"]
         B["cwa_api.py<br/>Requests 串接 / JSON 清洗<br/>(WGS84 座標 / 氣溫 / 雨量 / 濕度)"]
         C[("SQLite: data.db<br/>TemperatureForecasts 資料表<br/>UNIQUE 唯一約束 + INSERT OR REPLACE")]
     end
 
     subgraph UI["雙平臺視覺呈現層"]
-        D1["Streamlit Web App (app.py)<br/>- 類 Windy 深色玻璃擬態面板<br/>- CARTO Dark Matter 氣溫地圖<br/>- Plotly Cyber Glow 折線圖<br/>- 22 縣市雙層篩選 & CSV 匯出"]
-        D2["Vercel Serverless (api/index.py)<br/>- 類 taiwan-weather-map 介面<br/>- Leaflet Dark Map 全島標記<br/>- Windy 漸層色階即時聯動"]
+        D1["Streamlit Web App (app.py)<br/>- 類 Windy 深色玻璃擬態面板<br/>- Esri Dark Gray 氣溫地圖<br/>- Plotly Cyber Glow 折線圖<br/>- 22 縣市雙層篩選 & CSV 匯出"]
+        D2["Vercel Native Web (index.html / script.js)<br/>- 類 taiwan-weather-map 介面<br/>- 深灰藍底圖 + 縣市細邊界<br/>- 白灰城市標記 + 發光 Hover 溫標點<br/>- Chart.js 溫度與雨量長條圖"]
+    end
+
+    subgraph Serverless["雲端安全代理層"]
+        API["Vercel Function (api/weather.py)<br/>- 安全調用 CWA API<br/>- 前端完全不暴露 API Key<br/>- 輕量原生相依 (無 Lambda 體積限制)"]
     end
 
     subgraph Deploy["部署與自動化 CI/CD"]
@@ -39,7 +47,8 @@ flowchart TD
     CWA -->|Requests API + API Key| B
     B -->|結構化資料寫入| C
     C -->|SQL 條件查詢| D1
-    B -->|Serverless 即時查詢| D2
+    CWA -->|環境變數 API Key 請求| API
+    API -->|JSON 格式標準化| D2
     D1 -.-> E3
     D2 -.-> E2
     Core -.-> E1
@@ -55,56 +64,56 @@ flowchart TD
    - 內建離線示範資料生成器，無網路或未配置 API Key 亦能即時啟動體驗。
 
 2. **🌌 類 Windy 暗黑擬態科技美學 (Dark Cyber Glassmorphism)**
-   - 參考 `taiwan-weather-map.vercel.app` 設計，使用深色夜幕漸層底圖。
-   - **Windy 溫標漸層色帶**：`5°C (深藍)` ➔ `16°C (薄荷綠)` ➔ `24°C (溫黃)` ➔ `28°C (暖橙)` ➔ `32°C (橙紅)` ➔ `36°C+ (酷熱紅)`。
-   - **CARTO Dark Matter 地圖**：以發光圓點動態呈現全島 360+ 個氣象站點，點擊彈出高質感暗黑浮動卡片 (Popup)。
+   - 參考 `taiwan-weather-map.vercel.app` 設計，採用專業深色氣象基底。
+   - **底圖配置**：海洋深藍黑 (`#111726`)、陸地深灰藍 (`#1f2937`)、淡化道路降低干擾。
+   - **行政區細邊界**：載入全臺 22 縣市 GeoJSON 幾何邊界 (`tw_counties.js`)，地區邊界清晰俐落。
+   - **重要代表城市**：台北、新北、台中、高雄、花蓮、台東以簡潔白灰標示，避免鄉鎮繁雜干擾。
+   - **Marker 光暈與動態**：半透明白色外框 + 霓虹 Glow 陰影，滑鼠 Hover 即時放大，點擊呈現詳細觀測數據彈窗。
+   - **Windy 溫標漸層色帶**：`5°C (深藍)` ➔ `16°C (湖綠)` ➔ `24°C (溫黃)` ➔ `28°C (暖橙)` ➔ `32°C (橙紅)` ➔ `36°C+ (酷熱紅)`。
+   - **無浮水印地圖**：全面採用 Esri World Dark Gray Canvas 免費圖層，無任何第三方付費授權浮水印。
 
-3. **💾 健壯的 SQLite 資料庫設計**
-   - 資料庫檔案為 `data.db`，資料表 `TemperatureForecasts` 支援經緯度欄位 (`lat`, `lon`)。
-   - 設有 `UNIQUE(location_name, start_time, end_time)` 複合唯一鍵，搭配 `INSERT OR REPLACE` 機制防範重疊寫入。
+3. **🔒 雲端資安與邊緣代理 (Vercel Serverless Function)**
+   - 前端 JavaScript 絕不直接寫入 `CWA-55FDA...` 金鑰。
+   - 由後端 `/api/weather` (`api/weather.py`) 從 Vercel 環境變數讀取 `CWA_API_KEY`，轉發呼叫並回傳結構化氣象資料。
 
-4. **🔒 業界標準資安實踐**
-   - API Key 嚴格儲存於後端環境變數 ([`.env`](.env))，網頁前端不設置任何輸入框或明文暴露。
-   - [`.env`](.env) 已納入 [`.gitignore`](.gitignore)，絕不上傳公開倉儲。
+4. **⚡ 輕量化部署架構 (Zero-Bloat Lambda)**
+   - 將龐大的本機分析套件 (Streamlit, Pandas, Plotly) 分流至 `requirements-streamlit.txt`。
+   - 專案根目錄 `requirements.txt` 維持羽量級，徹底根除 Vercel Serverless Function 250MB 檔案大小上限錯誤。
 
 ---
 
-## 🏗️ 專案檔案結構
+## 📂 專案目錄結構
 
-```plaintext
+```text
 AIoT_L3_CWA_HW1/
-├── .github/
-│   └── workflows/
-│       └── ci.yml             # GitHub Actions CI 自動化測試工作流程
+│
 ├── api/
-│   └── index.py               # Vercel Serverless 雲端部署進入點 (Windy 風格全島地圖)
-├── app.py                     # Streamlit 主程式 (CARTO Dark Matter 地圖、Plotly 折線圖)
-├── cwa_api.py                 # 中央氣象署 API 串接與資料清洗 (O-A0003-001 & F-C0032-001)
-├── database.py                # SQLite data.db 資料庫連線、自動擴充經緯度與 SQL 查詢
-├── test_db.py                 # 資料庫寫入、防重覆驗證與 SQL 查詢自動化測試腳本
-├── requirements.txt           # 專案 Python 套件清單
-├── vercel.json                # Vercel 雲端部署路由與環境設定檔
-├── .env.example               # 環境變數設定檔範本
-├── .gitignore                 # Git 忽略設定 (排除 data.db, .env, .venv 等暫存檔)
-└── README.md                  # 專案完整說明與工作流文件
+│   ├── weather.py            # Vercel Serverless 代理 API (隱藏 CWA 金鑰)
+│   └── requirements.txt      # 雲端函數專用羽量套件設定
+│
+├── assets/
+│   └── preview.png           # 系統介面展示截圖
+│
+├── index.html                # Vercel 原生前端入口 (類 Windy 玻璃擬態面板)
+├── script.js                 # 前端互動邏輯 (Leaflet 地圖、Chart.js 圖表、氣象渲染)
+├── style.css                 # 深色擬態樣式表 (深灰藍海洋、霓虹光暈、玻璃模糊)
+├── tw_counties.js            # 臺灣 22 縣市 GeoJSON 行政邊界資料
+├── vercel.json               # Vercel 路由導向設定 (/api/weather -> api/weather.py)
+├── .vercelignore             # 排除本機龐大暫存檔，加速雲端建置
+│
+├── app.py                    # Streamlit 原生 Web 應用程式 (作業完整版)
+├── database.py               # SQLite 資料庫操作模組 (CRUD & SQL 篩選)
+├── cwa_api.py                # CWA 開放資料串接與結構化清洗模組
+├── test_db.py                # 單元測試腳本 (6 大步驟自動驗證)
+├── data.db                   # 本機 SQLite 資料庫實體檔案
+├── requirements.txt          # 雲端部署專用精簡相依清單
+├── requirements-streamlit.txt# 本機 Streamlit + SQLite 完整環境相依清單
+└── README.md                 # 專案詳細說明與架構文檔
 ```
 
 ---
 
-## 🔑 中央氣象署 API Key 申請教學
-
-1. 前往 [中央氣象署開放資料平臺](https://opendata.cwa.gov.tw/)。
-2. 點擊右上角 **「註冊 / 登入」**，完成會員註冊。
-3. 前往 **「取得授權碼」** 頁面 ([https://opendata.cwa.gov.tw/user/authkey](https://opendata.cwa.gov.tw/user/authkey))。
-4. 點擊 **「產生授權碼」**，取得以 `CWA-` 開頭的字串。
-5. 在專案根目錄建立 `.env` 檔案並填入金鑰：
-   ```bash
-   CWA_API_KEY=CWA-XXXXXXXXXXXXXXXXXXXXXXXXXXXX
-   ```
-
----
-
-## 🚀 本地開發與執行 (Local Quickstart)
+## 🚀 本機執行教學 (Local Streamlit & SQLite)
 
 ### 1. 複製專案
 ```bash
@@ -112,9 +121,16 @@ git clone https://github.com/Augustine-723/AIoT_L3_CWA_HW1.git
 cd AIoT_L3_CWA_HW1
 ```
 
-### 2. 安裝套件
+### 2. 建立虛擬環境並安裝完整相依套件
 ```bash
-pip install -r requirements.txt
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+# macOS / Linux:
+source .venv/bin/activate
+
+# 安裝包含 Streamlit、Pandas、Plotly 的完整套件清單：
+pip install -r requirements-streamlit.txt
 ```
 
 ### 3. 設定環境變數
@@ -137,55 +153,32 @@ streamlit run app.py
 
 ---
 
-## ☁️ 雲端部署指南 (Deployment Workflow)
+## ☁️ 雲端部署指南 (Vercel Deployment)
 
-### 🌐 途徑 A：部署至 Vercel (推薦，如參考網站)
-
-本專案已內建 `vercel.json` 與 `api/index.py`，支援 Vercel 一鍵無伺服器部署：
+本專案完美支援 Vercel 一鍵無伺服器部署：
 
 1. 前往 [Vercel 官網](https://vercel.com) 並以 **GitHub 帳號登入**。
 2. 點擊 **「Add New...」➔「Project」**。
-3. 在專案清單中選擇 **`Augustine-723/AIoT_L3_CWA_HW1`**，點擊 **「Import」**。
+3. 匯入 **`Augustine-723/AIoT_L3_CWA_HW1`**。
 4. 在 **Environment Variables** 區域新增：
    - **Key**: `CWA_API_KEY`
    - **Value**: `你的 CWA 授權碼`
 5. 點擊 **「Deploy」** 按鈕。
-6. 等候約 15 秒，即可獲得專屬網址（例如：`https://aiot-l3-cwa-hw1.vercel.app`）！
+6. 建置流程約 15 秒內完成，即可獲得專屬網址！
 
-> 💡 **自動持續部署 (CD)**：未來只要你推送程式碼至 GitHub `main` 分支，Vercel 將自動觸發重新建置與發布。
-
----
-
-### 🎈 途徑 B：部署至 Streamlit Community Cloud
-
-若偏好完整呈現 Streamlit 原生介面：
-
-1. 前往 [Streamlit Community Cloud](https://share.streamlit.io/) 並登入 GitHub。
-2. 點擊 **「New app」**。
-3. 設定：
-   - **Repository**: `Augustine-723/AIoT_L3_CWA_HW1`
-   - **Branch**: `main`
-   - **Main file path**: `app.py`
-4. 點開 **Advanced settings** ➔ **Secrets**，貼入：
-   ```toml
-   CWA_API_KEY = "你的 CWA 授權碼"
-   ```
-5. 點擊 **「Deploy!」**，應用程式將在 2 分鐘內上線。
+> 💡 **自動持續部署 (CD)**：未來只要推送程式碼至 GitHub `main` 分支，Vercel 將自動觸發重新建置與發布。
 
 ---
 
 ## ⚙️ GitHub Actions CI 工作流說明
 
 專案內建 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)：
-
 - **觸發時機**：每當有程式碼推送 (`push`) 或發起拉取請求 (`pull_request`) 至 `main` 分支時自動啟動。
 - **自動化步驟**：
   1. 檢出程式碼 (`actions/checkout@v4`)。
   2. 配置 Python 3.11 測試環境 (`actions/setup-python@v5`)。
-  3. 安裝專案相依套件 (`pip install -r requirements.txt`)。
+  3. 安裝完整相依套件 (`pip install -r requirements-streamlit.txt`)。
   4. 執行 `test_db.py` 驗證 SQLite 資料庫讀寫、SQL 條件篩選、複合唯一鍵約束與氣象資料解析。
-
-確保每一次程式碼更新都能維持 100% 正確性與穩定品質！
 
 ---
 

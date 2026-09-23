@@ -1,7 +1,5 @@
+# Core Vercel Serverless Function Dependencies
+# (Kept lightweight so Vercel does not exceed the AWS Lambda 250MB size limit)
+# Note: For full local Streamlit & SQLite homework environment, install requirements-streamlit.txt
 requests>=2.31.0
-streamlit>=1.35.0
-pandas>=2.2.0
-folium>=0.16.0
-streamlit-folium>=0.20.0
-plotly>=5.22.0
 python-dotenv>=1.0.1

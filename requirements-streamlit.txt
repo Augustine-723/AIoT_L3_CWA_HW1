@@ -1,0 +1,10 @@
+# Full dependencies for local Streamlit & SQLite homework execution
+# Install with: pip install -r requirements-streamlit.txt
+# Run Streamlit: streamlit run app.py
+requests>=2.31.0
+streamlit>=1.35.0
+pandas>=2.2.0
+folium>=0.16.0
+streamlit-folium>=0.20.0
+plotly>=5.22.0
+python-dotenv>=1.0.1
