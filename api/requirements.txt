@@ -1,0 +1,2 @@
+# Vercel serverless function dependencies
+# api/weather.py uses Python standard library (urllib, json, os)
