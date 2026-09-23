@@ -217,12 +217,58 @@ body {
 }
 
 #leaflet-map {
-    height: 480px;
+    height: 490px;
     width: 100%;
     border-radius: 12px;
     overflow: hidden;
     border: 1px solid var(--panel-border);
     z-index: 10;
+    background: #111726 !important; /* 海洋：更深灰藍 (#111726) */
+}
+
+/* 壓低道路存在感：主要道路淡灰，小路退居背景，不搶天氣 Marker 注意力 */
+#leaflet-map .leaflet-tile-pane {
+    opacity: 0.32;
+    filter: brightness(0.65) contrast(1.1);
+}
+
+/* 天氣 Marker 外發光 (Glow) 與白色半透明外框 */
+.weather-circle-marker {
+    filter: drop-shadow(0 0 6px rgba(251, 146, 60, 0.75));
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+.weather-circle-marker:hover {
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 14px rgba(251, 146, 60, 0.9));
+}
+
+/* 主要城市名稱標籤 (台北、台中、高雄、花蓮、台東... 白色/淺灰、無鄉鎮雜訊) */
+.city-label-icon {
+    background: transparent !important;
+    border: none !important;
+}
+.city-label-text {
+    color: #e2e8f0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 6px #0b0f19;
+    pointer-events: none;
+    white-space: nowrap;
+    opacity: 0.9;
+}
+
+/* 點擊 Popup 視窗深色科技擬態美化 */
+.leaflet-popup-content-wrapper {
+    background: rgba(15, 23, 42, 0.95) !important;
+    border: 1px solid rgba(56, 189, 248, 0.3) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6) !important;
+    color: #f8fafc !important;
+    backdrop-filter: blur(12px) !important;
+}
+.leaflet-popup-tip {
+    background: #0f172a !important;
 }
 
 /* Windy 溫標色帶 */

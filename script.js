@@ -38,26 +38,68 @@ function getRainColor(rainStr) {
     }
 }
 
+// 臺灣主要代表城市座標 (台北、台中、高雄、花蓮、台東... 白色/淺灰字體，無多餘鄉鎮干擾)
+const MAJOR_CITIES = [
+    { name: "台北", lat: 25.0478, lon: 121.5319 },
+    { name: "新北", lat: 25.0118, lon: 121.4658 },
+    { name: "桃園", lat: 24.9936, lon: 121.3010 },
+    { name: "新竹", lat: 24.8039, lon: 120.9647 },
+    { name: "台中", lat: 24.1620, lon: 120.6470 },
+    { name: "彰化", lat: 24.0818, lon: 120.5383 },
+    { name: "嘉義", lat: 23.4800, lon: 120.4491 },
+    { name: "台南", lat: 22.9997, lon: 120.2150 },
+    { name: "高雄", lat: 22.6273, lon: 120.3014 },
+    { name: "屏東", lat: 22.6761, lon: 120.4941 },
+    { name: "宜蘭", lat: 24.7570, lon: 121.7530 },
+    { name: "花蓮", lat: 23.9872, lon: 121.6016 },
+    { name: "台東", lat: 22.7583, lon: 121.1444 },
+    { name: "澎湖", lat: 23.5712, lon: 119.5793 }
+];
+
 // 初始化地圖
 function initMap() {
-    map = L.map('leaflet-map', { zoomControl: false }).setView([23.85, 120.95], 7);
+    map = L.map('leaflet-map', { 
+        zoomControl: false,
+        attributionControl: false
+    }).setView([23.82, 120.95], 7);
+    
     L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // 使用 Esri World Dark Gray Base (完全免費、無須 API Key、絕無浮水印)
+    // 1. 底圖底層：海洋深灰藍 (#111726)，道路壓低存在感 (淡灰微透，不搶天氣 marker 注意力)
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '&copy; Esri &copy; OpenStreetMap contributors',
-        maxZoom: 16
+        maxZoom: 16,
+        opacity: 0.35
     }).addTo(map);
 
-    // 繁體地名與邊界透明標籤圖層
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 16
-    }).addTo(map);
+    // 2. 臺灣縣市行政區邊界 (台北、新北、台中、高雄...細線分界，陸地 #1f2937 比海洋亮一階)
+    if (typeof TW_COUNTIES_GEOJSON !== 'undefined') {
+        L.geoJSON(TW_COUNTIES_GEOJSON, {
+            style: {
+                color: 'rgba(148, 163, 184, 0.45)', // 淡灰細線
+                weight: 1.2,
+                opacity: 0.8,
+                fillColor: '#1f2937',               // 陸地：比海洋亮一階的深灰藍 (#1f2937)
+                fillOpacity: 0.72,
+                dashArray: '3, 4'
+            }
+        }).addTo(map);
+    }
+
+    // 3. 標繪主要城市名稱 (白色/淺灰，乾淨明瞭，不顯示雜亂鄉鎮)
+    MAJOR_CITIES.forEach(c => {
+        const cityIcon = L.divIcon({
+            className: 'city-label-icon',
+            html: `<div class="city-label-text">${c.name}</div>`,
+            iconSize: [40, 16],
+            iconAnchor: [20, 8]
+        });
+        L.marker([c.lat, c.lon], { icon: cityIcon, interactive: false }).addTo(map);
+    });
 
     markerLayerGroup = L.layerGroup().addTo(map);
 }
 
-// 繪製地圖測站圓點標記
+// 繪製地圖測站圓點標記 (加白色半透明外框 + CSS Glow + Hover 放大 + 點擊顯示氣象)
 function renderMapMarkers() {
     if (!markerLayerGroup) return;
     markerLayerGroup.clearLayers();
@@ -65,7 +107,7 @@ function renderMapMarkers() {
     filteredStations.forEach(st => {
         if (!st.lat || !st.lon) return;
 
-        let markerColor = "#38bdf8";
+        let markerColor = "#fb923c"; // 預設經典暖橘黃
         if (currentLayer === "temp") {
             markerColor = getWindyColor(st.max_temp);
         } else if (currentLayer === "rain") {
@@ -73,25 +115,74 @@ function renderMapMarkers() {
         }
 
         const isSelected = currentStation && currentStation.id === st.id;
-        const radius = isSelected ? 10 : 6;
-        const fillOpacity = isSelected ? 0.95 : 0.8;
+        const radius = isSelected ? 10 : 7;
 
         const circle = L.circleMarker([st.lat, st.lon], {
             radius: radius,
             fillColor: markerColor,
-            color: isSelected ? "#ffffff" : markerColor,
-            weight: isSelected ? 2 : 1,
-            opacity: 1,
-            fillOpacity: fillOpacity
+            fillOpacity: 0.92,
+            color: isSelected ? "#ffffff" : "rgba(255, 255, 255, 0.85)", // 白色半透明邊框
+            weight: isSelected ? 3 : 2,
+            className: 'weather-circle-marker'
         });
 
-        // 浮動 Tooltip
+        // 浮動 Tooltip (提示站名與氣溫)
         circle.bindTooltip(`<b>${st.county} ${st.name}</b>: ${st.cur_temp}°C (${st.wx})`, {
             direction: 'top',
-            className: 'custom-tooltip'
+            offset: [0, -6]
         });
 
-        // 點擊事件
+        // Hover 時放大 (Mouse Hover Zoom & Glow)
+        circle.on('mouseover', function() {
+            this.setRadius(12);
+            this.setStyle({
+                weight: 3,
+                color: '#ffffff',
+                fillOpacity: 1
+            });
+        });
+
+        circle.on('mouseout', function() {
+            const isSel = currentStation && currentStation.id === st.id;
+            this.setRadius(isSel ? 10 : 7);
+            this.setStyle({
+                weight: isSel ? 3 : 2,
+                color: isSel ? "#ffffff" : "rgba(255, 255, 255, 0.85)",
+                fillOpacity: 0.92
+            });
+        });
+
+        // 點擊後跳出完整資訊 Popup (氣溫、濕度、降雨) 並同步卡片與圖表
+        const popupContent = `
+        <div style="font-family: inherit; font-size: 13px; line-height: 1.5; min-width: 170px;">
+            <div style="font-size: 14px; font-weight: 700; color: #38bdf8; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">
+                📍 ${st.county} - ${st.name}
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom: 3px;">
+                <span style="color:#94a3b8;">當前氣溫:</span>
+                <span style="color:#fb923c; font-weight:700;">${st.cur_temp}°C</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom: 3px;">
+                <span style="color:#94a3b8;">今日溫幅:</span>
+                <span style="color:#f8fafc; font-weight:600;">${st.min_temp}°C ~ ${st.max_temp}°C</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom: 3px;">
+                <span style="color:#94a3b8;">空氣濕度:</span>
+                <span style="color:#a78bfa; font-weight:600;">${st.humidity}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom: 3px;">
+                <span style="color:#94a3b8;">即時降雨:</span>
+                <span style="color:#06b6d4; font-weight:600;">${st.rain}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 4px;">
+                <span style="color:#94a3b8;">天氣狀況:</span>
+                <span style="color:#38bdf8;">${st.wx}</span>
+            </div>
+        </div>
+        `;
+
+        circle.bindPopup(popupContent, { maxWidth: 240 });
+
         circle.on('click', () => {
             selectStation(st);
         });

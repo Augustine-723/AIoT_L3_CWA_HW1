@@ -224,22 +224,60 @@ def get_windy_temp_color(temp: float) -> str:
 
 def create_windy_dark_map(overview_df: pd.DataFrame, focus_location: str = "", layer_type: str = "氣溫"):
     """
-    建立類 Windy 風格的高質感深色地圖 (CARTO Dark Matter)
+    建立類 Windy 風格的高質感深色地圖：深灰藍海洋、陸地亮一階、細緻縣市邊界、白色城市名稱、發光外框標記
     """
-    # 臺灣島中心視角，使用 Esri World Dark Gray (完全免費、免 API Key、無浮水印)
+    # 臺灣島中心視角，海洋背景底色深灰藍，道路壓低存在感 (opacity 0.35)
     m = folium.Map(
-        location=[23.75, 120.95],
+        location=[23.82, 120.95],
         zoom_start=7,
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
         attr="&copy; Esri &copy; OpenStreetMap contributors",
+        opacity=0.35,
     )
-    # 疊加透明地名標籤
-    folium.TileLayer(
-        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
-        attr="&copy; Esri",
-        overlay=True,
-        name="地名標籤",
-    ).add_to(m)
+
+    # 1. 疊加臺灣縣市行政區邊界 (台北、新北、台中、高雄...細線邊界，陸地 #1f2937 比海洋亮一階)
+    geojson_path = os.path.join(os.path.dirname(__file__), "tw_counties.json")
+    if os.path.exists(geojson_path):
+        try:
+            import json
+            with open(geojson_path, "r", encoding="utf-8") as f:
+                geo_data = json.load(f)
+            folium.GeoJson(
+                geo_data,
+                style_function=lambda feature: {
+                    "fillColor": "#1f2937",  # 陸地亮一階
+                    "color": "rgba(148, 163, 184, 0.45)",  # 行政區細線
+                    "weight": 1.2,
+                    "fillOpacity": 0.75,
+                    "dashArray": "3, 4",
+                },
+                name="縣市邊界",
+            ).add_to(m)
+        except Exception:
+            pass
+
+    # 2. 標繪主要城市名稱 (台北、台中、高雄、花蓮、台東... 白色/淺灰字，不顯示雜亂鄉鎮)
+    major_cities = [
+        ("台北", 25.0478, 121.5319),
+        ("新北", 25.0118, 121.4658),
+        ("台中", 24.1620, 120.6470),
+        ("台南", 22.9997, 120.2150),
+        ("高雄", 22.6273, 120.3014),
+        ("花蓮", 23.9872, 121.6016),
+        ("台東", 22.7583, 121.1444),
+        ("宜蘭", 24.7570, 121.7530),
+        ("新竹", 24.8039, 120.9647),
+        ("桃園", 24.9936, 121.3010),
+    ]
+    for c_name, c_lat, c_lon in major_cities:
+        folium.map.Marker(
+            [c_lat, c_lon],
+            icon=folium.DivIcon(
+                html=f'<div style="color: #e2e8f0; font-size: 11px; font-weight: 600; letter-spacing: 0.8px; text-shadow: 0 1px 3px rgba(0,0,0,0.95); white-space: nowrap;">{c_name}</div>',
+                icon_size=(40, 16),
+                icon_anchor=(20, 8),
+            ),
+        ).add_to(m)
 
     if overview_df.empty:
         return m
@@ -284,20 +322,20 @@ def create_windy_dark_map(overview_df: pd.DataFrame, focus_location: str = "", l
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                     background: #0f172a; color: #f8fafc; padding: 12px; border-radius: 10px;
                     border: 1px solid rgba(56, 189, 248, 0.3); min-width: 175px;">
-            <div style="font-size: 14px; font-weight: 700; color: #38bdf8; margin-bottom: 6px;">📍 {name}</div>
-            <div style="font-size: 12px; margin-bottom: 3px;"><b>天氣狀態:</b> {wx}</div>
+            <div style="font-size: 14px; font-weight: 700; color: #38bdf8; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">📍 {name}</div>
             <div style="font-size: 12px; margin-bottom: 3px;"><b>最高溫:</b> <span style="color:#f87171; font-weight:700;">{maxt}°C</span></div>
             <div style="font-size: 12px; margin-bottom: 3px;"><b>最低溫:</b> <span style="color:#38bdf8; font-weight:700;">{mint}°C</span></div>
-            <div style="font-size: 12px; margin-bottom: 3px;"><b>雨量 / 降雨:</b> {rain}</div>
-            <div style="font-size: 10px; color: #94a3b8; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px;">{ci}</div>
+            <div style="font-size: 12px; margin-bottom: 3px;"><b>即時雨量:</b> <span style="color:#06b6d4; font-weight:600;">{rain}</span></div>
+            <div style="font-size: 12px; margin-bottom: 3px;"><b>天氣狀態:</b> {wx}</div>
+            <div style="font-size: 11px; color: #94a3b8; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 4px;">{ci}</div>
         </div>
         """
 
         folium.CircleMarker(
             location=[lat, lon],
             radius=radius,
-            color="#ffffff" if is_focused else color,
-            weight=2 if is_focused else 1,
+            color="#ffffff" if is_focused else "rgba(255, 255, 255, 0.85)",  # 白色半透明外框
+            weight=3 if is_focused else 2,
             fill=True,
             fill_color=color,
             fill_opacity=fill_opacity,
