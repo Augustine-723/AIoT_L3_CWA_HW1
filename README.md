@@ -54,7 +54,7 @@ AIoT_L3_CWA_HW1/
 2. 點擊右上角 **「註冊 / 登入」**，完成會員註冊並驗證信箱。
 3. 登入後，前往 **「取得授權碼」** 頁面 ([https://opendata.cwa.gov.tw/user/authkey](https://opendata.cwa.gov.tw/user/authkey))。
 4. 點擊 **「產生授權碼」**，複製以 `CWA-` 開頭的字串。
-5. 將授權碼填入專案中的 `.env` 檔案（或直接在 Streamlit 側邊欄輸入）：
+5. 將授權碼填入專案根目錄的 `.env` 檔案（系統會自動讀取且受到 `.gitignore` 保護，絕不公開外流）：
    ```bash
    CWA_API_KEY=CWA-XXXXXXXXXXXXXXXXXXXXXXXXXXXX
    ```

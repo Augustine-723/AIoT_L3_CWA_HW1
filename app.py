@@ -160,23 +160,21 @@ with st.sidebar:
     st.caption("AIoT L3 - CWA Weather System")
 
     st.markdown("---")
-    st.subheader("🔑 CWA API 設定")
+    st.subheader("🔑 氣象資料同步")
 
-    default_key = os.getenv("CWA_API_KEY", "")
-    api_key = st.text_input(
-        "CWA API Key 授權碼",
-        value=default_key,
-        type="password",
-        help="登入中央氣象署開放資料平臺取得: https://opendata.cwa.gov.tw/user/authkey",
-    )
+    server_api_key = os.getenv("CWA_API_KEY", "")
+    if server_api_key:
+        st.success("🔒 API 授權碼：已於伺服器端環境變數安全啟用")
+    else:
+        st.info("ℹ️ 尚未於 .env 設定 API Key，可點擊下方載入示範資料")
 
     col1, col2 = st.columns(2)
     with col1:
         if st.button("🔄 同步 CWA 資料", use_container_width=True):
-            if not api_key:
-                st.warning("請先輸入 CWA API Key")
+            if not server_api_key:
+                st.warning("請先在後端 .env 設定 CWA_API_KEY")
             else:
-                sync_cwa_data(api_key)
+                sync_cwa_data(server_api_key)
     with col2:
         if st.button("🧪 載入示範資料", use_container_width=True):
             load_demo_data()
