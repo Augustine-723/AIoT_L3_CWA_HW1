@@ -1,5 +1,6 @@
 """
-app.py - 臺灣中央氣象署 (CWA) 互動式天氣預報 Web 應用程式
+app.py - 臺灣中央氣象署 (CWA) 氣象觀測與預報 Web 應用程式
+整合 CWA O-A0003-001 (全臺 360+ 測站即時觀測) 與 F-C0032-001 (預報)
 技術棧: Streamlit + SQLite + Folium + Plotly + Pandas
 """
 
@@ -12,6 +13,8 @@ from streamlit_folium import st_folium
 from dotenv import load_dotenv
 
 from cwa_api import (
+    fetch_oa0003_data,
+    parse_oa0003_json,
     fetch_weather_data,
     parse_weather_json,
     generate_sample_forecasts,
@@ -30,46 +33,46 @@ from database import (
 # 載入 .env 環境變數
 load_dotenv()
 
-# 設定 Streamlit 頁面設定
+# 設定 Streamlit 頁面
 st.set_page_config(
-    page_title="臺灣天氣預報資訊系統 | AIoT L3 CWA HW1",
+    page_title="臺灣氣象觀測與預報系統 | CWA O-A0003-001",
     page_icon="🌤️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# 自訂 CSS 美化
+# 自訂現代化 CSS
 st.markdown("""
 <style>
     .main-header {
         font-size: 2.2rem;
         font-weight: 700;
-        background: linear-gradient(120deg, #1E88E5, #00ACC1);
+        background: linear-gradient(120deg, #1E88E5, #00897B);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 0.2rem;
     }
     .sub-header {
-        font-size: 1rem;
-        color: #607D8B;
-        margin-bottom: 1.5rem;
+        font-size: 0.95rem;
+        color: #546E7A;
+        margin-bottom: 1.2rem;
     }
     .metric-card {
-        background: #f8f9fa;
+        background: #f8fafc;
         border-radius: 12px;
         padding: 16px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        border: 1px solid #e9ecef;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        border: 1px solid #e2e8f0;
         text-align: center;
     }
     .metric-val {
-        font-size: 1.8rem;
+        font-size: 1.75rem;
         font-weight: bold;
-        color: #2c3e50;
+        color: #1e293b;
     }
     .metric-lbl {
         font-size: 0.85rem;
-        color: #7f8c8d;
+        color: #64748b;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -78,84 +81,110 @@ st.markdown("""
 init_db()
 
 
-def sync_cwa_data(api_key: str):
-    """呼叫 CWA API 並寫入 SQLite"""
+def sync_oa0003(api_key: str):
+    """呼叫 CWA O-A0003-001 API (自動氣象站即時觀測)"""
     try:
-        with st.spinner("正在向中央氣象署 (CWA) 取得最新預報資料..."):
+        with st.spinner("正在擷取全臺自動氣象站觀測資料 (O-A0003-001)..."):
+            raw_json = fetch_oa0003_data(api_key)
+            parsed_data = parse_oa0003_json(raw_json)
+            count = save_forecasts(parsed_data)
+            st.success(f"✅ 成功同步全臺 {count} 個自動氣象站即時觀測資料至資料庫！")
+    except Exception as e:
+        st.error(f"❌ 擷取 O-A0003-001 失敗: {str(e)}")
+
+
+def sync_fc0032(api_key: str):
+    """呼叫 CWA F-C0032-001 API (36小時預報)"""
+    try:
+        with st.spinner("正在向中央氣象署擷取 36小時天氣預報 (F-C0032-001)..."):
             raw_json = fetch_weather_data(api_key)
             parsed_data = parse_weather_json(raw_json)
             count = save_forecasts(parsed_data)
-            st.success(f"✅ 成功更新 {count} 筆氣象預報資料至資料庫！")
+            st.success(f"✅ 成功同步 {count} 筆氣象預報資料至資料庫！")
     except Exception as e:
-        st.error(f"❌ 擷取資料失敗: {str(e)}")
+        st.error(f"❌ 擷取預報失敗: {str(e)}")
 
 
-def load_demo_data():
-    """載入示範預報資料並寫入 SQLite"""
+def load_demo():
+    """載入示範資料"""
     sample_data = generate_sample_forecasts()
     count = save_forecasts(sample_data)
-    st.success(f"✅ 成功載入 {count} 筆示範預報資料至資料庫！")
+    st.success(f"✅ 成功載入 {count} 筆示範氣象資料！")
 
 
-def create_folium_map(overview_df: pd.DataFrame):
-    """建立包含臺灣各縣市氣溫標記的 Folium 地圖"""
-    # 臺灣地理中心 (南投附近)，使用預設 OpenStreetMap 圖資
+def create_folium_map(overview_df: pd.DataFrame, focus_location: str = ""):
+    """建立包含精確 WGS84 座標之全島氣溫標記地圖"""
     m = folium.Map(location=[23.8, 120.9], zoom_start=7, tiles="OpenStreetMap")
-
-    # 建立縣市對應字典
-    loc_coord_map = {item["name"]: (item["lat"], item["lon"]) for item in TAIWAN_LOCATIONS}
 
     if overview_df.empty:
         return m
 
+    # 備用縣市中心字典
+    loc_coord_map = {item["name"]: (item["lat"], item["lon"]) for item in TAIWAN_LOCATIONS}
+
     for _, row in overview_df.iterrows():
         name = row["location_name"]
-        if name in loc_coord_map:
+        lat = row.get("lat", 0.0)
+        lon = row.get("lon", 0.0)
+
+        # 若無精確經緯度，嘗試由縣市名稱匹配
+        if (not lat or not lon or lat == 0.0) and name in loc_coord_map:
             lat, lon = loc_coord_map[name]
-            maxt = row["max_temp"]
-            mint = row["min_temp"]
-            wx = row["weather_condition"]
-            rain = row["rain_prob"]
 
-            # 依據最高溫變換標記顏色
-            if maxt >= 32:
-                color = "red"
-            elif maxt >= 28:
-                color = "orange"
-            elif maxt >= 24:
-                color = "green"
-            else:
-                color = "blue"
+        if not lat or not lon or lat == 0.0:
+            continue
 
-            popup_html = f"""
-            <div style="font-family: sans-serif; font-size: 13px; line-height: 1.5; width: 160px;">
-                <h4 style="margin: 0 0 6px 0; color: #1E88E5;">{name}</h4>
-                <b>天氣狀態:</b> {wx}<br>
-                <b>最高溫:</b> <span style="color: #e53935; font-weight: bold;">{maxt}°C</span><br>
-                <b>最低溫:</b> <span style="color: #1e88e5; font-weight: bold;">{mint}°C</span><br>
-                <b>降雨機率:</b> {rain}
-            </div>
-            """
+        maxt = row["max_temp"]
+        mint = row["min_temp"]
+        wx = row["weather_condition"]
+        rain = row["rain_prob"]
+        ci = row["comfort_index"]
 
-            folium.CircleMarker(
-                location=[lat, lon],
-                radius=8,
-                color=color,
-                fill=True,
-                fill_color=color,
-                fill_opacity=0.8,
-                popup=folium.Popup(popup_html, max_width=200),
-                tooltip=f"{name}: {mint}~{maxt}°C ({wx})",
-            ).add_to(m)
+        # 顏色分級 (依最高溫)
+        if maxt >= 32:
+            color = "#d32f2f"  # 紅 (高溫)
+        elif maxt >= 28:
+            color = "#f57c00"  # 橙 (暖熱)
+        elif maxt >= 24:
+            color = "#388e3c"  # 綠 (適溫)
+        else:
+            color = "#1976d2"  # 藍 (涼爽)
+
+        is_focused = (name == focus_location)
+        radius = 11 if is_focused else 6
+        fill_opacity = 0.95 if is_focused else 0.75
+
+        popup_html = f"""
+        <div style="font-family: sans-serif; font-size: 13px; line-height: 1.5; width: 170px;">
+            <b style="color: #0288d1; font-size: 14px;">{name}</b><br>
+            <b>天氣:</b> {wx}<br>
+            <b>最高溫:</b> <span style="color: #d32f2f; font-weight: bold;">{maxt}°C</span><br>
+            <b>最低溫:</b> <span style="color: #1976d2; font-weight: bold;">{mint}°C</span><br>
+            <b>雨量/降雨:</b> {rain}<br>
+            <span style="font-size: 11px; color: #64748b;">{ci}</span>
+        </div>
+        """
+
+        folium.CircleMarker(
+            location=[lat, lon],
+            radius=radius,
+            color="#000" if is_focused else color,
+            weight=2 if is_focused else 1,
+            fill=True,
+            fill_color=color,
+            fill_opacity=fill_opacity,
+            popup=folium.Popup(popup_html, max_width=220),
+            tooltip=f"{name}: {mint}~{maxt}°C ({wx})",
+        ).add_to(m)
 
     return m
 
 
 # ==========================================
-# 側邊欄 (Sidebar) 控制區
+# 側邊欄 (Sidebar)
 # ==========================================
 with st.sidebar:
-    st.image("https://img.icons8.com/clouds/200/sun.png", width=110)
+    st.image("https://img.icons8.com/clouds/200/sun.png", width=100)
     st.title("🌤️ 控制面板")
     st.caption("AIoT L3 - CWA Weather System")
 
@@ -164,75 +193,83 @@ with st.sidebar:
 
     server_api_key = os.getenv("CWA_API_KEY", "")
     if server_api_key:
-        st.success("🔒 API 授權碼：已於伺服器端環境變數安全啟用")
+        st.success("🔒 API 授權碼：已由 .env 安全載入")
     else:
-        st.info("ℹ️ 尚未於 .env 設定 API Key，可點擊下方載入示範資料")
+        st.warning("⚠️ 尚未配置 API Key，可點擊載入示範資料")
+
+    # 提供 O-A0003-001 (預設推薦) 與 F-C0032-001
+    dataset_choice = st.radio(
+        "選擇 CWA 資料集來源",
+        options=["O-A0003-001 (自動氣象站即時觀測 - 推薦)", "F-C0032-001 (36小時預報)"],
+        index=0,
+    )
 
     col1, col2 = st.columns(2)
     with col1:
         if st.button("🔄 同步 CWA 資料", use_container_width=True):
             if not server_api_key:
-                st.warning("請先在後端 .env 設定 CWA_API_KEY")
+                st.warning("請先於 .env 填入 CWA_API_KEY")
             else:
-                sync_cwa_data(server_api_key)
+                if "O-A0003-001" in dataset_choice:
+                    sync_oa0003(server_api_key)
+                else:
+                    sync_fc0032(server_api_key)
     with col2:
         if st.button("🧪 載入示範資料", use_container_width=True):
-            load_demo_data()
+            load_demo()
 
     st.markdown("---")
-    st.subheader("📍 篩選條件")
+    st.subheader("📍 測站與地區篩選")
 
-    # 取得現有縣市清單
-    existing_locations = get_all_locations()
-    if not existing_locations:
-        # 若初次開啟資料庫無資料，預先載入示範資料
-        load_demo_data()
-        existing_locations = get_all_locations()
+    all_locations = get_all_locations()
+    if not all_locations:
+        if server_api_key:
+            sync_oa0003(server_api_key)
+        else:
+            load_demo()
+        all_locations = get_all_locations()
 
-    selected_location = st.selectbox(
-        "選擇地區 / 縣市",
-        options=existing_locations,
-        index=0 if "臺北市" not in existing_locations else existing_locations.index("臺北市"),
-    )
+    # 提取縣市清單供兩層篩選
+    taiwan_counties = [
+        "全部縣市", "臺北市", "新北市", "基隆市", "桃園市", "新竹市", "新竹縣",
+        "苗栗縣", "臺中市", "彰化縣", "南投縣", "雲林縣", "嘉義市", "嘉義縣",
+        "臺南市", "高雄市", "屏東縣", "宜蘭縣", "花蓮縣", "臺東縣", "澎湖縣",
+        "金門縣", "連江縣"
+    ]
+    selected_county = st.selectbox("依縣市篩選", options=taiwan_counties, index=0)
 
-    # 取得所有預報資料以供日期篩選
-    all_df = get_all_forecasts()
-    unique_dates = []
-    if not all_df.empty:
-        all_df["date"] = all_df["start_time"].apply(lambda x: str(x).split(" ")[0])
-        unique_dates = sorted(all_df["date"].unique().tolist())
+    # 依選定縣市過濾測站
+    if selected_county == "全部縣市":
+        filtered_locations = all_locations
+    else:
+        filtered_locations = [loc for loc in all_locations if selected_county in loc]
+        if not filtered_locations:
+            filtered_locations = all_locations
 
-    selected_date = st.selectbox(
-        "篩選日期 (可選)",
-        options=["全部日期"] + unique_dates,
-        index=0,
-    )
+    selected_location = st.selectbox("選擇測站 / 地區", options=filtered_locations, index=0)
 
     st.markdown("---")
-    st.info("💡 提示: 點擊地圖圓點可查看各地區預報詳情；切換地區可即時聯動折線圖與資料表。")
+    st.info("💡 提示: CWA O-A0003-001 提供全臺 360+ 自動站之精確經緯度與即時溫濕度。")
 
 
 # ==========================================
-# 主畫面 (Main Content Area)
+# 主畫面 (Main Content)
 # ==========================================
-st.markdown('<div class="main-header">🇹🇼 臺灣氣象即時預報與氣溫分析儀表板</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">整合中央氣象署 CWA API、SQLite 資料庫儲存、互動式溫度折線圖與 Folium 臺灣地圖視覺化</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🇹🇼 臺灣氣象即時觀測與氣溫分析儀表板</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">整合中央氣象署 CWA API (O-A0003-001 / F-C0032-001)、SQLite 資料庫、Plotly 溫度圖表與 Folium 全臺地圖</div>', unsafe_allow_html=True)
 
-# 查詢所選縣市的預報資料
+# 查詢所選測站紀錄
 loc_df = get_forecasts_by_location(selected_location)
-if selected_date != "全部日期" and not loc_df.empty:
-    loc_df["date"] = loc_df["start_time"].apply(lambda x: str(x).split(" ")[0])
-    loc_df = loc_df[loc_df["date"] == selected_date]
 
-# 指標概覽卡片 (Metrics Cards)
+# 頂部指標卡片
 if not loc_df.empty:
-    latest_record = loc_df.iloc[0]
+    latest = loc_df.iloc[-1]
     m1, m2, m3, m4 = st.columns(4)
 
     with m1:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-lbl">📍 當前選擇地區</div>
+            <div class="metric-lbl">📍 觀測測站 / 地區</div>
             <div class="metric-val">{selected_location}</div>
         </div>
         """, unsafe_allow_html=True)
@@ -240,47 +277,52 @@ if not loc_df.empty:
     with m2:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-lbl">🌡️ 氣溫區間 (Min ~ Max)</div>
-            <div class="metric-val" style="color: #e65100;">{latest_record['min_temp']}°C ~ {latest_record['max_temp']}°C</div>
+            <div class="metric-lbl">🌡️ 今日溫幅 (最低 ~ 最高)</div>
+            <div class="metric-val" style="color: #e65100;">{latest['min_temp']}°C ~ {latest['max_temp']}°C</div>
         </div>
         """, unsafe_allow_html=True)
 
     with m3:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-lbl">🌧️ 降雨機率 (PoP)</div>
-            <div class="metric-val" style="color: #0288d1;">{latest_record['rain_prob']}</div>
+            <div class="metric-lbl">🌧️ 雨量 / 降雨</div>
+            <div class="metric-val" style="color: #0288d1;">{latest['rain_prob']}</div>
         </div>
         """, unsafe_allow_html=True)
 
     with m4:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-lbl">☁️ 天氣現象與舒適度</div>
-            <div class="metric-val" style="font-size: 1.25rem;">{latest_record['weather_condition']}</div>
-            <div style="font-size: 0.8rem; color: #78909c;">{latest_record['comfort_index']}</div>
+            <div class="metric-lbl">☁️ 天氣現象與狀態</div>
+            <div class="metric-val" style="font-size: 1.3rem;">{latest['weather_condition']}</div>
+            <div style="font-size: 0.8rem; color: #64748b;">{latest['comfort_index']}</div>
         </div>
         """, unsafe_allow_html=True)
 
 st.write("")
 
-# 建立兩欄版面：左邊為地圖，右邊為溫度折線圖
+# 左右兩欄：地圖與折線圖
 col_map, col_chart = st.columns([1, 1])
 
+overview_df = get_latest_overview()
+if selected_county != "全部縣市" and not overview_df.empty:
+    map_display_df = overview_df[overview_df["location_name"].str.contains(selected_county, na=False)]
+    if map_display_df.empty:
+        map_display_df = overview_df
+else:
+    map_display_df = overview_df
+
 with col_map:
-    st.subheader("🗺️ 全臺縣市溫度分佈圖 (Folium)")
-    st.caption("紅/橙: 偏熱；綠/藍: 舒適涼爽。點擊標記可查看各縣市資訊。")
-    overview_df = get_latest_overview()
-    folium_map = create_folium_map(overview_df)
-    st_folium(folium_map, width=540, height=420)
+    st.subheader("🗺️ 全臺自動測站氣溫分佈圖 (Folium)")
+    st.caption(f"目前顯示 {len(map_display_df)} 個測站座標。點擊圓點可查看測站即時資訊。")
+    f_map = create_folium_map(map_display_df, focus_location=selected_location)
+    st_folium(f_map, width=540, height=430)
 
 with col_chart:
-    st.subheader(f"📈 {selected_location} - 最高／最低溫時段趨勢圖")
+    st.subheader(f"📈 {selected_location} - 氣溫統計與趨勢圖 (Plotly)")
     if not loc_df.empty:
-        # 繪製 Plotly 折線圖
         fig = go.Figure()
 
-        # 最高溫曲線
         fig.add_trace(go.Scatter(
             x=loc_df["start_time"],
             y=loc_df["max_temp"],
@@ -292,7 +334,6 @@ with col_chart:
             marker=dict(size=8, symbol="circle"),
         ))
 
-        # 最低溫曲線
         fig.add_trace(go.Scatter(
             x=loc_df["start_time"],
             y=loc_df["min_temp"],
@@ -305,49 +346,48 @@ with col_chart:
         ))
 
         fig.update_layout(
-            height=420,
+            height=430,
             margin=dict(l=20, r=20, t=30, b=30),
-            xaxis_title="預報時段 (開始時間)",
+            xaxis_title="觀測/預報時間",
             yaxis_title="溫度 (°C)",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             hovermode="x unified",
         )
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.warning("此篩選條件下無氣溫趨勢資料。")
+        st.warning("無該測站圖表資料。")
 
 st.markdown("---")
 
 # ==========================================
-# 資料表區塊 (Data Table Section)
+# 資料表區塊
 # ==========================================
-st.subheader(f"📋 {selected_location} 預報詳細資料表 (SQLite data.db)")
+st.subheader(f"📋 觀測資料記錄表 (SQLite: data.db / TemperatureForecasts)")
 
 if not loc_df.empty:
     display_df = loc_df[[
-        "start_time", "end_time", "weather_condition",
-        "min_temp", "max_temp", "rain_prob", "comfort_index"
+        "location_name", "start_time", "weather_condition",
+        "min_temp", "max_temp", "rain_prob", "comfort_index", "lat", "lon"
     ]].copy()
 
     display_df.rename(columns={
-        "start_time": "預報起始時間",
-        "end_time": "預報結束時間",
-        "weather_condition": "天氣現象 (Wx)",
+        "location_name": "測站 / 地區",
+        "start_time": "觀測/預報時間",
+        "weather_condition": "天氣現象",
         "min_temp": "最低溫 (°C)",
         "max_temp": "最高溫 (°C)",
-        "rain_prob": "降雨機率",
-        "comfort_index": "舒適度 (CI)"
+        "rain_prob": "雨量 / 降雨",
+        "comfort_index": "氣象指標",
+        "lat": "緯度 (Lat)",
+        "lon": "經度 (Lon)",
     }, inplace=True)
 
     st.dataframe(display_df, use_container_width=True)
 
-    # 支援 CSV 下載功能
     csv_data = display_df.to_csv(index=False, encoding="utf-8-sig")
     st.download_button(
-        label="📥 下載預報資料 (CSV)",
+        label="📥 下載觀測資料 (CSV)",
         data=csv_data,
-        file_name=f"{selected_location}_氣象預報.csv",
+        file_name=f"{selected_location}_氣象資料.csv",
         mime="text/csv",
     )
-else:
-    st.info("尚無符合條件的預報資料。")

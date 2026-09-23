@@ -1,5 +1,8 @@
 """
 cwa_api.py - 中央氣象署 (CWA) Open Data API 串接與資料解析模組
+支援:
+1. O-A0003-001: 自動氣象站即時觀測資料 (觀測溫度、當日最高/最低溫、降雨、經緯度) - 推薦使用
+2. F-C0032-001: 一般天氣預報-今明36小時天氣預報
 """
 
 import os
@@ -7,9 +10,10 @@ import requests
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 
-CWA_API_BASE_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001"
+CWA_OA0003_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0003-001"
+CWA_FC0032_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001"
 
-# 臺灣 22 個主要縣市清單與經緯度 (供地圖與預設資料使用)
+# 臺灣 22 個主要縣市清單與經緯度 (供備用與預設中心座標使用)
 TAIWAN_LOCATIONS = [
     {"name": "臺北市", "lat": 25.0330, "lon": 121.5654},
     {"name": "新北市", "lat": 25.0118, "lon": 121.4658},
@@ -36,12 +40,10 @@ TAIWAN_LOCATIONS = [
 ]
 
 
-def fetch_weather_data(api_key: str, location_name: Optional[str] = None) -> Dict[str, Any]:
+def fetch_oa0003_data(api_key: str) -> Dict[str, Any]:
     """
-    呼叫中央氣象署 Open Data API (F-C0032-001: 36小時天氣預報)
-    :param api_key: CWA API 授權碼
-    :param location_name: 可選，指定縣市名稱 (若未提供則取得全部縣市)
-    :return: 回傳原始 JSON 資料字典
+    呼叫中央氣象署 Open Data API (O-A0003-001: 自動氣象站即時觀測資料)
+    包含全臺 360+ 個自動測站之氣溫、當日最高低溫、濕度、即時雨量與精確 WGS84 經緯度
     """
     if not api_key:
         raise ValueError("請提供有效的 CWA API 授權碼 (API Key)。")
@@ -50,10 +52,7 @@ def fetch_weather_data(api_key: str, location_name: Optional[str] = None) -> Dic
         "Authorization": api_key,
         "format": "JSON",
     }
-    if location_name:
-        params["locationName"] = location_name
-
-    response = requests.get(CWA_API_BASE_URL, params=params, timeout=15)
+    response = requests.get(CWA_OA0003_URL, params=params, timeout=20)
     response.raise_for_status()
 
     data = response.json()
@@ -64,64 +63,151 @@ def fetch_weather_data(api_key: str, location_name: Optional[str] = None) -> Dic
     return data
 
 
+def parse_oa0003_json(raw_json: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    解析 O-A0003-001 JSON 資料，轉換為 TemperatureForecasts 資料格式
+    """
+    records = raw_json.get("records", {})
+    stations = records.get("Station", [])
+    parsed_records: List[Dict[str, Any]] = []
+
+    for s in stations:
+        station_name = s.get("StationName", "")
+        station_id = s.get("StationId", "")
+        geo = s.get("GeoInfo", {})
+        county = geo.get("CountyName", "")
+        town = geo.get("TownName", "")
+
+        # 取得 WGS84 座標
+        lat, lon = 0.0, 0.0
+        coords = {c.get("CoordinateName"): c for c in geo.get("Coordinates", [])}
+        if "WGS84" in coords:
+            try:
+                lat = float(coords["WGS84"].get("StationLatitude", 0.0))
+                lon = float(coords["WGS84"].get("StationLongitude", 0.0))
+            except (ValueError, TypeError):
+                lat, lon = 0.0, 0.0
+
+        # 觀測時間
+        obs_time_raw = s.get("ObsTime", {}).get("DateTime", "")
+        # 格式化為標準字串
+        obs_time = obs_time_raw.replace("T", " ")[:19] if obs_time_raw else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        we = s.get("WeatherElement", {})
+        # 當前氣溫
+        try:
+            air_temp = float(we.get("AirTemperature", -99.0))
+        except (ValueError, TypeError):
+            air_temp = 25.0
+
+        if air_temp <= -50.0:  # 儀器維護或無資料代碼
+            continue
+
+        # 當日最高溫與最低溫
+        de = we.get("DailyExtreme", {})
+        hi_raw = de.get("DailyHigh", {}).get("TemperatureInfo", {}).get("AirTemperature")
+        lo_raw = de.get("DailyLow", {}).get("TemperatureInfo", {}).get("AirTemperature")
+
+        try:
+            max_temp = float(hi_raw) if hi_raw is not None else air_temp
+        except (ValueError, TypeError):
+            max_temp = air_temp
+
+        try:
+            min_temp = float(lo_raw) if lo_raw is not None else air_temp
+        except (ValueError, TypeError):
+            min_temp = air_temp
+
+        # 天氣現象與其他指標
+        wx = we.get("Weather", "晴")
+        if not wx or wx == "-99":
+            wx = "多雲時晴"
+
+        precip = we.get("Now", {}).get("Precipitation", "0.0")
+        humidity = we.get("RelativeHumidity", "70")
+        pressure = we.get("AirPressure", "1013.0")
+
+        loc_label = f"{county} - {town} ({station_name})" if town else f"{county} - {station_name}"
+
+        parsed_records.append({
+            "location_name": loc_label,
+            "start_time": obs_time,
+            "end_time": obs_time,
+            "min_temp": min_temp,
+            "max_temp": max_temp,
+            "weather_condition": wx,
+            "rain_prob": f"{precip} mm",
+            "comfort_index": f"濕度 {humidity}%, 氣壓 {pressure} hPa",
+            "lat": lat,
+            "lon": lon,
+        })
+
+    return parsed_records
+
+
+def fetch_weather_data(api_key: str, location_name: Optional[str] = None) -> Dict[str, Any]:
+    """
+    呼叫 F-C0032-001 (今明 36 小時預報)
+    """
+    if not api_key:
+        raise ValueError("請提供有效的 CWA API 授權碼 (API Key)。")
+
+    params = {"Authorization": api_key, "format": "JSON"}
+    if location_name:
+        params["locationName"] = location_name
+
+    response = requests.get(CWA_FC0032_URL, params=params, timeout=15)
+    response.raise_for_status()
+    data = response.json()
+    if not data.get("success") == "true":
+        raise RuntimeError("CWA API 回傳失敗")
+    return data
+
+
 def parse_weather_json(raw_json: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    解析 CWA API 回傳的 JSON 格式資料，提取以下欄位：
-    - location_name: 縣市名稱
-    - start_time: 預報起始時間 (YYYY-MM-DD HH:MM:SS)
-    - end_time: 預報結束時間 (YYYY-MM-DD HH:MM:SS)
-    - weather_condition: 天氣現象 (Wx)
-    - rain_prob: 降雨機率 (%) (PoP)
-    - min_temp: 最低溫 (MinT, 攝氏度)
-    - max_temp: 最高溫 (MaxT, 攝氏度)
-    - comfort_index: 舒適度 (CI)
-    """
+    """解析 F-C0032-001 預報 JSON"""
     records = raw_json.get("records", {})
     locations = records.get("location", [])
     parsed_forecasts: List[Dict[str, Any]] = []
 
+    # 經緯度對應
+    loc_coord = {item["name"]: (item["lat"], item["lon"]) for item in TAIWAN_LOCATIONS}
+
     for loc in locations:
         loc_name = loc.get("locationName", "")
+        lat, lon = loc_coord.get(loc_name, (23.8, 120.9))
         weather_elements = loc.get("weatherElement", [])
 
-        # 整理不同氣象要素的時間段
         element_dict: Dict[str, List[Dict[str, Any]]] = {}
         for elem in weather_elements:
-            elem_name = elem.get("elementName", "")
-            element_dict[elem_name] = elem.get("time", [])
+            element_dict[elem.get("elementName", "")] = elem.get("time", [])
 
-        # 一般預報包含 3 個時段 (各12小時)
         time_slots = element_dict.get("Wx", [])
         for i, time_item in enumerate(time_slots):
             start_time = time_item.get("startTime", "")
             end_time = time_item.get("endTime", "")
             wx = time_item.get("parameter", {}).get("parameterName", "晴")
 
-            # 提取 PoP (降雨機率)
-            pop = "0"
+            pop = "0%"
             pop_times = element_dict.get("PoP", [])
             if i < len(pop_times):
-                pop = pop_times[i].get("parameter", {}).get("parameterName", "0")
+                pop = f"{pop_times[i].get('parameter', {}).get('parameterName', '0')}%"
 
-            # 提取 MinT (最低溫)
-            min_temp = 20.0
+            min_temp, max_temp = 20.0, 25.0
             mint_times = element_dict.get("MinT", [])
             if i < len(mint_times):
                 try:
                     min_temp = float(mint_times[i].get("parameter", {}).get("parameterName", 20.0))
-                except (ValueError, TypeError):
-                    min_temp = 20.0
+                except Exception:
+                    pass
 
-            # 提取 MaxT (最高溫)
-            max_temp = 25.0
             maxt_times = element_dict.get("MaxT", [])
             if i < len(maxt_times):
                 try:
                     max_temp = float(maxt_times[i].get("parameter", {}).get("parameterName", 25.0))
-                except (ValueError, TypeError):
-                    max_temp = 25.0
+                except Exception:
+                    pass
 
-            # 提取 CI (舒適度)
             ci = "舒適"
             ci_times = element_dict.get("CI", [])
             if i < len(ci_times):
@@ -132,20 +218,19 @@ def parse_weather_json(raw_json: Dict[str, Any]) -> List[Dict[str, Any]]:
                 "start_time": start_time,
                 "end_time": end_time,
                 "weather_condition": wx,
-                "rain_prob": f"{pop}%",
+                "rain_prob": pop,
                 "min_temp": min_temp,
                 "max_temp": max_temp,
                 "comfort_index": ci,
+                "lat": lat,
+                "lon": lon,
             })
 
     return parsed_forecasts
 
 
 def generate_sample_forecasts() -> List[Dict[str, Any]]:
-    """
-    產生示範用模擬預報資料 (包含臺灣 22 縣市未來的 3 個時段預報)
-    可用於尚未取得 API Key 時的本地離線測試與演示。
-    """
+    """產生示範用模擬預報資料 (包含 22 縣市與精確座標)"""
     now = datetime.now()
     t1 = now.replace(minute=0, second=0, microsecond=0)
     t2 = t1 + timedelta(hours=12)
@@ -159,35 +244,35 @@ def generate_sample_forecasts() -> List[Dict[str, Any]]:
     ]
 
     weather_types = [
-        ("晴時多雲", "10%", 23.0, 31.0, "舒適至悶熱"),
-        ("多雲短暫陣雨", "40%", 24.0, 30.0, "舒適至微熱"),
-        ("陰局部雨", "60%", 22.0, 27.0, "舒適"),
-        ("晴天", "0%", 25.0, 33.0, "悶熱"),
-        ("多雲午後雷陣雨", "70%", 23.5, 32.5, "悶熱易雨"),
+        ("晴時多雲", "0.0 mm", 23.0, 31.5, "濕度 65%, 舒適"),
+        ("多雲短暫陣雨", "2.5 mm", 24.0, 30.0, "濕度 78%, 微熱有雨"),
+        ("陰局部雨", "8.0 mm", 22.0, 27.5, "濕度 85%, 涼爽陰雨"),
+        ("晴天", "0.0 mm", 25.0, 33.2, "濕度 60%, 炎熱"),
     ]
 
     samples: List[Dict[str, Any]] = []
     for loc_idx, loc in enumerate(TAIWAN_LOCATIONS):
-        base_mint = 21.0 + (loc_idx % 5) * 0.8
-        base_maxt = 28.0 + (loc_idx % 6) * 0.9
+        base_mint = 21.5 + (loc_idx % 4) * 0.8
+        base_maxt = 28.5 + (loc_idx % 5) * 0.9
 
         for slot_idx, (st, et) in enumerate(slots):
             w_idx = (loc_idx + slot_idx) % len(weather_types)
-            cond, pop, _, _, ci = weather_types[w_idx]
+            cond, rain, _, _, ci = weather_types[w_idx]
 
-            # 夜晚溫度稍低
-            mint = round(base_mint - (1.5 if slot_idx == 1 else 0), 1)
-            maxt = round(base_maxt + (1.0 if slot_idx == 0 else 0), 1)
+            mint = round(base_mint - (1.0 if slot_idx == 1 else 0), 1)
+            maxt = round(base_maxt + (0.8 if slot_idx == 0 else 0), 1)
 
             samples.append({
-                "location_name": loc["name"],
+                "location_name": f"{loc['name']} - 測站",
                 "start_time": st,
                 "end_time": et,
                 "weather_condition": cond,
-                "rain_prob": pop,
+                "rain_prob": rain,
                 "min_temp": mint,
                 "max_temp": maxt,
                 "comfort_index": ci,
+                "lat": loc["lat"],
+                "lon": loc["lon"],
             })
 
     return samples
