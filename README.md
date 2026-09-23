@@ -10,7 +10,7 @@
 本專案為 **AIoT L3 HW1** 作業成果，參考 [taiwan-weather-map.vercel.app](https://taiwan-weather-map.vercel.app/) 的視覺設計，打造**類 Windy 風格高質感深色玻璃擬態氣象觀測系統**。
 
 具備**雙架構雙平臺支援**：
-1. **本機完整版 (Streamlit + SQLite)**：保留原生作業要求之 `app.py`、`database.py` 與 `data.db`，支援完整 SQL 條件過濾、互動圖表、CSV 匯出與單元測試。
+1. **本機完整版 (Streamlit + SQLite)**：保留原生作業要求之 `streamlit_app.py`、`database.py` 與 `data.db`，支援完整 SQL 條件過濾、互動圖表、CSV 匯出與單元測試。
 2. **Vercel 雲端原生版 (HTML5 + Leaflet + Chart.js + Serverless)**：透過 Serverless 代理 API (`api/weather.py`) 安全串接 CWA API，前端嚴格隱藏 API 金鑰，具備響應式深灰藍地圖、發光測站標記與即時氣象儀表板。
 
 ---
@@ -30,7 +30,7 @@ flowchart TD
     end
 
     subgraph UI["雙平臺視覺呈現層"]
-        D1["Streamlit Web App (app.py)<br/>- 類 Windy 深色玻璃擬態面板<br/>- Esri Dark Gray 氣溫地圖<br/>- Plotly Cyber Glow 折線圖<br/>- 22 縣市雙層篩選 & CSV 匯出"]
+        D1["Streamlit Web App (streamlit_app.py)<br/>- 類 Windy 深色玻璃擬態面板<br/>- Esri Dark Gray 氣溫地圖<br/>- Plotly Cyber Glow 折線圖<br/>- 22 縣市雙層篩選 & CSV 匯出"]
         D2["Vercel Native Web (index.html / script.js)<br/>- 類 taiwan-weather-map 介面<br/>- 深灰藍底圖 + 縣市細邊界<br/>- 白灰城市標記 + 發光 Hover 溫標點<br/>- Chart.js 溫度與雨量長條圖"]
     end
 
@@ -101,7 +101,8 @@ AIoT_L3_CWA_HW1/
 ├── vercel.json               # Vercel 路由導向設定 (/api/weather -> api/weather.py)
 ├── .vercelignore             # 排除本機龐大暫存檔，加速雲端建置
 │
-├── app.py                    # Streamlit 原生 Web 應用程式 (作業完整版)
+├── streamlit_app.py          # Streamlit 原生 Web 應用程式 (作業完整版)
+├── pyproject.toml            # Vercel 部署入口點配置
 ├── database.py               # SQLite 資料庫操作模組 (CRUD & SQL 篩選)
 ├── cwa_api.py                # CWA 開放資料串接與結構化清洗模組
 ├── test_db.py                # 單元測試腳本 (6 大步驟自動驗證)
@@ -147,7 +148,7 @@ python test_db.py
 
 ### 5. 啟動 Streamlit 應用程式
 ```bash
-streamlit run app.py
+streamlit run streamlit_app.py
 ```
 瀏覽器將自動開啟 `http://localhost:8501`。
 
