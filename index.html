@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>臺灣即時氣象地圖 | Windy 風格 Vercel 版</title>
+    <meta name="description" content="中央氣象署開放資料即時視覺化地圖（類 Windy 風格）- AIoT L3 HW1">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 頂部 Navigation Bar -->
+    <header class="app-header">
+        <div class="logo-group">
+            <span class="logo-icon">🛰️</span>
+            <div>
+                <h1 class="app-title">臺灣即時氣象地圖</h1>
+                <p class="app-subtitle">中央氣象署開放資料 (CWA O-A0003-001) 即時視覺化 · 類 Windy 風格</p>
+            </div>
+        </div>
+        <div class="header-badges">
+            <span class="badge badge-pulse" id="status-badge">📡 載入氣象資料中...</span>
+            <button class="btn btn-sync" id="btn-refresh">🔄 重新整理</button>
+        </div>
+    </header>
+
+    <!-- 主儀表板容器 -->
+    <main class="dashboard-container">
+        <!-- 4 塊玻璃擬態指標卡片 (Glassmorphism Metric Cards) -->
+        <section class="metrics-grid">
+            <div class="glass-card">
+                <div class="metric-label">📍 當前觀測站點</div>
+                <div class="metric-value" id="card-station" style="color: #38bdf8;">--</div>
+                <div class="metric-sub" id="card-time">觀測時間: --</div>
+            </div>
+            <div class="glass-card">
+                <div class="metric-label">🌡️ 今日極值溫幅 (Min ~ Max)</div>
+                <div class="metric-value" id="card-range" style="color: #fb923c;">--°C ~ --°C</div>
+                <div class="metric-sub" id="card-cur-temp">當前氣溫: --°C</div>
+            </div>
+            <div class="glass-card">
+                <div class="metric-label">🌧️ 即時雨量 / 降雨</div>
+                <div class="metric-value" id="card-rain" style="color: #06b6d4;">-- mm</div>
+                <div class="metric-sub">累積降水量觀測</div>
+            </div>
+            <div class="glass-card">
+                <div class="metric-label">⛅ 天氣型態與濕度</div>
+                <div class="metric-value" id="card-wx" style="color: #c084fc; font-size: 1.45rem;">--</div>
+                <div class="metric-sub" id="card-hum">濕度: -- | 氣壓: --</div>
+            </div>
+        </section>
+
+        <!-- 中間核心視覺區：左側地圖，右側控制面板與 Chart.js 圖表 -->
+        <section class="visual-split">
+            <!-- 左欄：Leaflet 地圖 -->
+            <div class="map-card">
+                <div class="card-header-bar">
+                    <span class="card-title">🗺️ 全島自動測站氣象分佈圖</span>
+                    <span class="card-sub-info" id="station-count-info">底圖: CARTO Dark Matter · 座標: WGS84</span>
+                </div>
+                <div id="leaflet-map"></div>
+
+                <!-- 類 Windy 底部溫標漸層色帶 (Windy Color Scale Bar) -->
+                <div class="windy-legend-bar">
+                    <div class="legend-header">
+                        <span>°C 氣溫色階圖例 (Windy Scale)</span>
+                        <span>極低 ➔ 極高溫</span>
+                    </div>
+                    <div class="gradient-strip"></div>
+                    <div class="legend-ticks">
+                        <span>5°</span><span>12°</span><span>16°</span><span>20°</span><span>24°</span><span>28°</span><span>32°</span><span>36°C+</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右欄：控制面板與 Chart.js 折線圖 -->
+            <div class="side-panel">
+                <!-- 篩選控制面板 -->
+                <div class="control-box">
+                    <div class="control-row">
+                        <div class="control-field">
+                            <label for="select-county">縣市篩選</label>
+                            <select id="select-county" class="custom-select">
+                                <option value="all">全臺灣 (全部縣市)</option>
+                            </select>
+                        </div>
+                        <div class="control-field">
+                            <label for="select-station">觀測站點</label>
+                            <select id="select-station" class="custom-select">
+                                <option value="">請先載入資料...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="layer-toggle-group">
+                        <span class="layer-lbl">圖層模式:</span>
+                        <button class="layer-btn active" data-layer="temp">🌡️ 氣溫分佈</button>
+                        <button class="layer-btn" data-layer="rain">🌧️ 雨量觀測</button>
+                        <button class="layer-btn" data-layer="station">📍 測站點位</button>
+                    </div>
+                </div>
+
+                <!-- Chart.js 氣溫趨勢折線圖 -->
+                <div class="chart-box">
+                    <div class="card-header-bar">
+                        <span class="card-title" id="chart-title">📈 縣市測站溫度比較 (Chart.js)</span>
+                    </div>
+                    <div class="chart-canvas-container">
+                        <canvas id="tempChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 底部：詳細資料表 -->
+        <section class="table-section">
+            <div class="table-header-bar">
+                <span class="card-title">📋 觀測站即時記錄表</span>
+                <div class="table-actions">
+                    <input type="text" id="table-search" placeholder="🔍 搜尋測站、縣市或天氣..." class="search-input">
+                    <button class="btn btn-export" id="btn-export-csv">📥 匯出 CSV 報表</button>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table class="data-table" id="weather-table">
+                    <thead>
+                        <tr>
+                            <th>測站代碼</th>
+                            <th>縣市</th>
+                            <th>測站名稱</th>
+                            <th>觀測時間</th>
+                            <th>天氣現象</th>
+                            <th>當前氣溫</th>
+                            <th>最高溫 (MaxT)</th>
+                            <th>最低溫 (MinT)</th>
+                            <th>雨量</th>
+                            <th>濕度</th>
+                            <th>WGS84 座標</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr><td colspan="11" style="text-align:center; padding: 30px;">正在載入氣象資料...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <p>AIoT L3 HW1 · 氣象資料來源：<a href="https://opendata.cwa.gov.tw/" target="_blank">交通部中央氣象署開放資料平臺</a> · 類 Windy 擬態視覺呈現</p>
+    </footer>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
