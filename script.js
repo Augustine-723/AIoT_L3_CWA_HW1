@@ -43,10 +43,15 @@ function initMap() {
     map = L.map('leaflet-map', { zoomControl: false }).setView([23.85, 120.95], 7);
     L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // 載入 CARTO Dark Matter 深色底圖
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        maxZoom: 18
+    // 使用 Esri World Dark Gray Base (完全免費、無須 API Key、絕無浮水印)
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '&copy; Esri &copy; OpenStreetMap contributors',
+        maxZoom: 16
+    }).addTo(map);
+
+    // 繁體地名與邊界透明標籤圖層
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 16
     }).addTo(map);
 
     markerLayerGroup = L.layerGroup().addTo(map);

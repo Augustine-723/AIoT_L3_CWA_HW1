@@ -108,10 +108,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         const map = L.map('map', { zoomControl: false }).setView([23.85, 120.95], 8);
         L.control.zoom({ position: 'topright' }).addTo(map);
 
-        // Dark Matter 底圖
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap &copy; CARTO',
-            maxZoom: 18
+        // Esri Dark Matter 底圖 (完全免費、免 API Key、無浮水印)
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '&copy; Esri &copy; OpenStreetMap',
+            maxZoom: 16
+        }).addTo(map);
+
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 16
         }).addTo(map);
 
         function getColor(temp) {

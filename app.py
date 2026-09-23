@@ -226,13 +226,20 @@ def create_windy_dark_map(overview_df: pd.DataFrame, focus_location: str = "", l
     """
     建立類 Windy 風格的高質感深色地圖 (CARTO Dark Matter)
     """
-    # 臺灣島中心視角
+    # 臺灣島中心視角，使用 Esri World Dark Gray (完全免費、免 API Key、無浮水印)
     m = folium.Map(
         location=[23.75, 120.95],
         zoom_start=7,
-        tiles="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-        attr="&copy; OpenStreetMap contributors &copy; CARTO",
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+        attr="&copy; Esri &copy; OpenStreetMap contributors",
     )
+    # 疊加透明地名標籤
+    folium.TileLayer(
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
+        attr="&copy; Esri",
+        overlay=True,
+        name="地名標籤",
+    ).add_to(m)
 
     if overview_df.empty:
         return m
