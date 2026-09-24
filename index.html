@@ -99,18 +99,24 @@
         <!-- 中間核心視覺區：左側 580px 放大主地圖，右側 Floating Glass Panel 控制與圖表 -->
         <section class="visual-split">
             <!-- 左欄：Leaflet 地圖 (視覺主角，高度 580px) -->
-            <div class="glass-card map-card">
+            <div class="glass-card map-card" id="map-card-wrapper">
                 <div class="card-header-bar">
                     <div class="card-title-group">
                         <span class="card-title">🗺️ 全島自動測站氣象分佈圖</span>
                         <span class="card-sub-info" id="station-count-info">底圖: Esri Dark Gray · 座標: WGS84</span>
                     </div>
+                    <!-- 右上角 ⛶ 放大地圖 (Expand Map) 按鈕 -->
+                    <button class="btn btn-expand-map" id="btn-expand-map" title="放大地圖至全螢幕模式 (約 90% 畫面)">
+                        <span>⛶ 放大地圖</span>
+                    </button>
                 </div>
-                <!-- 地圖本體 (580px 高度) -->
-                <div id="leaflet-map"></div>
+                <!-- 地圖本體原始插槽 (580px 高度) -->
+                <div id="map-slot-original" class="map-slot">
+                    <div id="leaflet-map"></div>
+                </div>
 
                 <!-- 簡化溫標圖例 (Sleek Windy Scale) -->
-                <div class="windy-legend-bar">
+                <div class="windy-legend-bar" id="windy-legend-bar">
                     <div class="legend-header">
                         <span class="legend-title">°C 氣溫色標</span>
                         <div class="gradient-strip"></div>
@@ -213,6 +219,53 @@
             </div>
         </section>
     </main>
+
+    <!-- 放大地圖 Fullscreen Modal Overlay (約佔 90% 畫面，深色 Glassmorphism) -->
+    <div id="map-modal-overlay" class="map-modal-overlay" aria-hidden="true">
+        <div class="map-modal-container glass-card" id="map-modal-container">
+            <!-- Modal 頂部控制列：標題、篩選、圖層、關閉按鈕 -->
+            <div class="map-modal-header">
+                <div class="modal-header-left">
+                    <span class="modal-title">🗺️ 全島氣象地圖 (放大檢視)</span>
+                    <span class="modal-subtitle" id="modal-station-count-info">341 測站 · Esri Dark Gray</span>
+                </div>
+
+                <!-- 放大模式專屬控制列 (保留縣市、測站、圖層切換) -->
+                <div class="modal-header-controls">
+                    <div class="modal-control-item">
+                        <label for="modal-select-county">縣市</label>
+                        <select id="modal-select-county" class="custom-select modal-select">
+                            <option value="all">全臺灣</option>
+                        </select>
+                    </div>
+                    <div class="modal-control-item">
+                        <label for="modal-select-station">測站</label>
+                        <select id="modal-select-station" class="custom-select modal-select">
+                            <option value="">請先載入資料...</option>
+                        </select>
+                    </div>
+                    <div class="modal-layer-toggle">
+                        <button class="layer-btn active modal-layer-btn" data-layer="temp">🌡️ 氣溫</button>
+                        <button class="layer-btn modal-layer-btn" data-layer="rain">🌧️ 雨量</button>
+                        <button class="layer-btn modal-layer-btn" data-layer="station">📍 測站</button>
+                    </div>
+                </div>
+
+                <!-- ✕ 關閉按鈕 -->
+                <button class="btn-close-modal" id="btn-close-map-modal" aria-label="關閉放大地圖" title="關閉放大模式 (ESC)">✕</button>
+            </div>
+
+            <!-- Modal 地圖掛載槽 -->
+            <div class="map-modal-body" id="map-modal-body">
+                <!-- JS 動態將 #leaflet-map 移動至此 -->
+            </div>
+
+            <!-- Modal 底部圖例 -->
+            <div class="map-modal-footer" id="map-modal-footer">
+                <!-- JS 動態將 #windy-legend-bar 移動至此 -->
+            </div>
+        </div>
+    </div>
 
     <footer class="app-footer">
         <p>AIoT L3 HW1 · Data: <a href="https://opendata.cwa.gov.tw/" target="_blank" rel="noopener noreferrer">CWA Open Data</a></p>

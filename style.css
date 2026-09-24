@@ -918,3 +918,214 @@ body {
         height: 380px;
     }
 }
+
+/* =========================================================
+   ⛶ 放大地圖按鈕與 Fullscreen Modal Overlay (約 90% 畫面)
+   ========================================================= */
+.btn-expand-map {
+    background: rgba(56, 189, 248, 0.12);
+    color: var(--accent-sky);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-expand-map:hover {
+    background: rgba(56, 189, 248, 0.24);
+    border-color: var(--accent-sky);
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+    transform: translateY(-1px);
+}
+
+.map-slot {
+    width: 100%;
+    height: 580px;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* 放大地圖 Modal Overlay (200ms 淡入淡出) */
+.map-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(4, 7, 13, 0.82);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.map-modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* 約佔 90% 畫面寬度與高度 */
+.map-modal-container {
+    width: 90vw;
+    max-width: 1600px;
+    height: 90vh;
+    max-height: 960px;
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 18px;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 20px;
+    overflow: hidden;
+    transform: scale(0.97);
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.map-modal-overlay.active .map-modal-container {
+    transform: scale(1);
+}
+
+.map-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.modal-header-left {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.modal-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.modal-subtitle {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.modal-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.modal-control-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.modal-control-item label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.modal-select {
+    width: 140px;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+}
+
+.modal-layer-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* ✕ 關閉按鈕 */
+.btn-close-modal {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-close-modal:hover {
+    background: rgba(244, 63, 94, 0.25);
+    border-color: rgba(244, 63, 94, 0.5);
+    color: #fb7185;
+    transform: scale(1.08) rotate(90deg);
+}
+
+.map-modal-body {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+}
+
+.map-modal-body #leaflet-map {
+    height: 100% !important;
+    width: 100% !important;
+}
+
+.map-modal-footer {
+    margin-top: 10px;
+}
+
+/* 手機版接近全螢幕的版面 (98vw × 96vh) */
+@media (max-width: 768px) {
+    .map-modal-container {
+        width: 98vw;
+        height: 96vh;
+        padding: 10px 12px;
+        border-radius: 12px;
+    }
+    .map-modal-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        position: relative;
+        padding-right: 40px;
+    }
+    .btn-close-modal {
+        position: absolute;
+        top: 2px;
+        right: 0;
+    }
+    .modal-header-controls {
+        width: 100%;
+        gap: 8px;
+    }
+    .modal-select {
+        flex: 1;
+        width: auto;
+    }
+}

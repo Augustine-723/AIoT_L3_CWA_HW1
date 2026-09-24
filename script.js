@@ -1,6 +1,6 @@
 /**
  * script.js - 臺灣即時氣象地圖前端互動邏輯 (Vercel Edition)
- * 整合 Leaflet Dark Map (Esri Dark Gray)、Chart.js、CWA API (/api/weather) 與分頁報表
+ * 整合 Leaflet Dark Map (Esri Dark Gray)、Chart.js、CWA API (/api/weather)、分頁報表與全螢幕放大地圖 Modal
  */
 
 // 全域狀態變數
@@ -16,6 +16,9 @@ let chartInstance = null;
 let currentPage = 1;
 const PAGE_SIZE = 15;
 const expandedStationIds = new Set();
+
+// 放大地圖 Modal 狀態
+let isMapModalOpen = false;
 
 // Windy 溫標色階對應函式
 function getWindyColor(temp) {
@@ -61,7 +64,7 @@ const MAJOR_CITIES = [
     { name: "澎湖", lat: 23.5712, lon: 119.5793 }
 ];
 
-// 初始化地圖 (防禦性載入，地圖高度提升至 580px 成為視覺主角)
+// 初始化地圖 (防禦性載入，高度約 580px 成為視覺主角)
 function initMap() {
     if (typeof L === 'undefined') {
         console.warn("Leaflet library (L) is not loaded yet.");
@@ -298,6 +301,11 @@ function selectStation(st) {
     } catch (e) {
         console.warn("updateChart in selectStation failed:", e);
     }
+
+    // 7. 同步 Modal 控制狀態
+    if (isMapModalOpen) {
+        syncModalControls();
+    }
 }
 
 // 初始化與更新 Chart.js 折線圖
@@ -528,7 +536,12 @@ window.locateStationOnMap = function(stationId) {
     const st = allStations.find(s => s.id === stationId);
     if (st) {
         selectStation(st);
-        window.scrollTo({ top: 180, behavior: 'smooth' });
+        if (isMapModalOpen) {
+            // 已在放大地圖中，平滑移動中心
+            if (map && st.lat && st.lon) map.panTo([st.lat, st.lon], { animate: true });
+        } else {
+            window.scrollTo({ top: 180, behavior: 'smooth' });
+        }
     }
 };
 
@@ -605,6 +618,10 @@ function handleCountyChange() {
     try { renderMapMarkers(); } catch (e) { console.error("renderMapMarkers error:", e); }
     try { renderTable(filteredStations); } catch (e) { console.error("renderTable error:", e); }
     try { updateChart(); } catch (e) { console.error("updateChart error:", e); }
+
+    if (isMapModalOpen) {
+        syncModalControls();
+    }
 }
 
 // 骨架屏載入效果 (Skeleton Loading)
@@ -672,6 +689,107 @@ function exportCSV() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+
+// =========================================================
+// 放大地圖 Modal (Fullscreen Overlay) 功能實作
+// =========================================================
+
+// 同步 Modal 內的縣市、測站與圖層按鈕狀態
+function syncModalControls() {
+    const mainCounty = document.getElementById('select-county');
+    const modalCounty = document.getElementById('modal-select-county');
+    if (mainCounty && modalCounty) {
+        modalCounty.innerHTML = mainCounty.innerHTML;
+        modalCounty.value = mainCounty.value;
+    }
+
+    const mainStation = document.getElementById('select-station');
+    const modalStation = document.getElementById('modal-select-station');
+    if (mainStation && modalStation) {
+        modalStation.innerHTML = mainStation.innerHTML;
+        modalStation.value = mainStation.value;
+    }
+
+    document.querySelectorAll('.modal-layer-btn').forEach(btn => {
+        if (btn.dataset.layer === currentLayer) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    const modalInfo = document.getElementById('modal-station-count-info');
+    const mainInfo = document.getElementById('station-count-info');
+    if (modalInfo && mainInfo) {
+        modalInfo.innerText = mainInfo.innerText;
+    }
+}
+
+// 開啟放大地圖 (約佔 90% 畫面)
+function openMapModal() {
+    if (isMapModalOpen) return;
+    isMapModalOpen = true;
+
+    // 將 Leaflet map 移動至 Modal 掛載槽
+    const mapEl = document.getElementById('leaflet-map');
+    const modalBody = document.getElementById('map-modal-body');
+    if (mapEl && modalBody) {
+        modalBody.appendChild(mapEl);
+    }
+
+    // 將圖例移動至 Modal 底部
+    const legendEl = document.getElementById('windy-legend-bar');
+    const modalFooter = document.getElementById('map-modal-footer');
+    if (legendEl && modalFooter) {
+        modalFooter.appendChild(legendEl);
+    }
+
+    syncModalControls();
+
+    const overlay = document.getElementById('map-modal-overlay');
+    if (overlay) {
+        overlay.classList.add('active');
+        overlay.setAttribute('aria-hidden', 'false');
+    }
+    document.body.style.overflow = 'hidden';
+
+    // 尺寸改變後呼叫 map.invalidateSize() 確保 Tile 顯示完整
+    setTimeout(() => {
+        if (map) map.invalidateSize();
+    }, 200);
+}
+
+// 關閉放大地圖，恢復原本 Dashboard 位置與尺寸
+function closeMapModal() {
+    if (!isMapModalOpen) return;
+    isMapModalOpen = false;
+
+    const overlay = document.getElementById('map-modal-overlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+        overlay.setAttribute('aria-hidden', 'true');
+    }
+    document.body.style.overflow = '';
+
+    // 將 Leaflet map 移回原始插槽
+    const mapEl = document.getElementById('leaflet-map');
+    const origSlot = document.getElementById('map-slot-original');
+    if (mapEl && origSlot) {
+        origSlot.appendChild(mapEl);
+    }
+
+    // 將圖例移回原本卡片
+    const legendEl = document.getElementById('windy-legend-bar');
+    const cardWrapper = document.getElementById('map-card-wrapper');
+    if (legendEl && cardWrapper) {
+        cardWrapper.appendChild(legendEl);
+    }
+
+    // 恢復尺寸後呼叫 map.invalidateSize()
+    setTimeout(() => {
+        if (map) map.invalidateSize();
+    }, 200);
 }
 
 // 核心資料載入函式 (含 Skeleton 骨架屏與紅色錯誤處理)
@@ -750,7 +868,7 @@ async function loadWeatherData() {
     }
 }
 
-// 綁定所有互動事件 (包含分頁按鈕)
+// 綁定所有互動事件
 function bindEvents() {
     const countySelect = document.getElementById('select-county');
     if (countySelect) countySelect.addEventListener('change', handleCountyChange);
@@ -766,9 +884,14 @@ function bindEvents() {
     // 圖層切換按鈕
     document.querySelectorAll('.layer-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.layer-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            currentLayer = e.target.dataset.layer;
+            currentLayer = e.currentTarget.dataset.layer;
+            document.querySelectorAll('.layer-btn').forEach(b => {
+                if (b.dataset.layer === currentLayer) {
+                    b.classList.add('active');
+                } else {
+                    b.classList.remove('active');
+                }
+            });
             renderMapMarkers();
         });
     });
@@ -841,6 +964,59 @@ function bindEvents() {
 
     const refreshBtn = document.getElementById('btn-refresh');
     if (refreshBtn) refreshBtn.addEventListener('click', loadWeatherData);
+
+    // =========================================================
+    // 放大地圖 Modal 按鈕與事件監聽
+    // =========================================================
+    const btnExpand = document.getElementById('btn-expand-map');
+    if (btnExpand) {
+        btnExpand.addEventListener('click', openMapModal);
+    }
+
+    const btnCloseMapModal = document.getElementById('btn-close-map-modal');
+    if (btnCloseMapModal) {
+        btnCloseMapModal.addEventListener('click', closeMapModal);
+    }
+
+    // 點擊 Modal 外部半透明區域可關閉
+    const modalOverlay = document.getElementById('map-modal-overlay');
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                closeMapModal();
+            }
+        });
+    }
+
+    // 需求 9: ESC 鍵關閉放大地圖
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isMapModalOpen) {
+            closeMapModal();
+        }
+    });
+
+    // Modal 內的縣市下拉切換
+    const modalCountySelect = document.getElementById('modal-select-county');
+    if (modalCountySelect) {
+        modalCountySelect.addEventListener('change', (e) => {
+            const mainCounty = document.getElementById('select-county');
+            if (mainCounty) mainCounty.value = e.target.value;
+            handleCountyChange();
+            syncModalControls();
+        });
+    }
+
+    // Modal 內的測站下拉切換
+    const modalStationSelect = document.getElementById('modal-select-station');
+    if (modalStationSelect) {
+        modalStationSelect.addEventListener('change', (e) => {
+            const mainStation = document.getElementById('select-station');
+            if (mainStation) mainStation.value = e.target.value;
+            const st = filteredStations.find(s => s.id === e.target.value);
+            if (st) selectStation(st);
+            syncModalControls();
+        });
+    }
 
     // 視窗調整尺寸時自適應 Leaflet
     window.addEventListener('resize', () => {
