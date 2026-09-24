@@ -1,6 +1,8 @@
 {
-  "cleanUrls": true
+  "cleanUrls": true,
+  "functions": {
+    "api/weather.py": {
+      "includeFiles": "{index.html,style.css,script.js,tw_counties.js,tw_counties.json}"
+    }
+  }
 }
-
-
-
