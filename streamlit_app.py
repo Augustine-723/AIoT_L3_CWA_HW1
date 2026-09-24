@@ -509,7 +509,7 @@ with col_map:
     st.markdown(f"""
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <span style="font-size:1.1rem; font-weight:700; color:#f8fafc;">🗺️ 全島觀測地圖 ({len(map_display_df)} 站點)</span>
-        <span style="font-size:0.8rem; color:#94a3b8;">底圖: CARTO Dark Matter · 座標: WGS84</span>
+        <span style="font-size:0.8rem; color:#94a3b8;">底圖: Esri Dark Gray · 座標: WGS84</span>
     </div>
     """, unsafe_allow_html=True)
 

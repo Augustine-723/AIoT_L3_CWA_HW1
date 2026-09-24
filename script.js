@@ -65,10 +65,10 @@ function initMap() {
     
     L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // 1. 底圖底層：海洋深灰藍 (#111726)，道路壓低存在感 (淡灰微透，不搶天氣 marker 注意力)
+    // 1. 底圖底層：海洋深灰藍 (#111726)，道路與地理細節更清晰 (保留深色氣象 dashboard 風格)
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 16,
-        opacity: 0.35
+        opacity: 0.8
     }).addTo(map);
 
     // 2. 臺灣縣市行政區邊界 (台北、新北、台中、高雄...細線分界，陸地 #1f2937 比海洋亮一階)
@@ -118,7 +118,7 @@ function renderMapMarkers() {
             // 類 Windy 色階圓點標記
             let markerColor = "#fb923c"; // 預設暖橘
             if (currentLayer === "temp") {
-                markerColor = getWindyColor(st.max_temp);
+                markerColor = getWindyColor(stationTemp);
             } else if (currentLayer === "rain") {
                 markerColor = getRainColor(st.rain);
             }
@@ -204,11 +204,12 @@ function selectStation(st) {
     if (!st) return;
     currentStation = st;
 
-    // 1. 更新 4 塊指標卡片
+    // 1. 更新 4 塊指標卡片 (統一優先使用 st.temp，fallback 到 st.cur_temp)
+    const stationTemp = st.temp !== undefined ? st.temp : st.cur_temp;
     document.getElementById('card-station').innerText = `${st.county} - ${st.name}`;
     document.getElementById('card-time').innerText = `觀測時間: ${st.time}`;
     document.getElementById('card-range').innerText = `${st.min_temp}°C ~ ${st.max_temp}°C`;
-    document.getElementById('card-cur-temp').innerText = `即時氣溫: ${st.cur_temp}°C`;
+    document.getElementById('card-cur-temp').innerText = `即時氣溫: ${stationTemp}°C`;
     document.getElementById('card-rain').innerText = st.rain || "0.0 mm";
     document.getElementById('card-wx').innerText = st.wx || "晴";
     document.getElementById('card-hum').innerText = `濕度: ${st.humidity} | 氣壓: ${st.pressure}`;
@@ -345,7 +346,7 @@ function renderTable(stationsToRender) {
             <td style="font-weight:600;">${st.name}</td>
             <td style="color:#94a3b8; font-size:11px;">${st.time}</td>
             <td><span style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:4px;">${st.wx}</span></td>
-            <td style="font-weight:700; color:#fb923c;">${st.cur_temp}°C</td>
+            <td style="font-weight:700; color:#fb923c;">${st.temp !== undefined ? st.temp : st.cur_temp}°C</td>
             <td style="color:#f43f5e; font-weight:600;">${st.max_temp}°C</td>
             <td style="color:#38bdf8; font-weight:600;">${st.min_temp}°C</td>
             <td style="color:#06b6d4;">${st.rain}</td>
@@ -381,7 +382,7 @@ function handleCountyChange() {
         `<option value="${st.id}">${st.county} - ${st.name}</option>`
     ).join('');
 
-    document.getElementById('station-count-info').innerText = `已顯示 ${filteredStations.length} 個站點 · CARTO Dark Matter`;
+    document.getElementById('station-count-info').innerText = `已顯示 ${filteredStations.length} 個站點 · Esri Dark Gray`;
 
     if (filteredStations.length > 0) {
         selectStation(filteredStations[0]);
@@ -403,7 +404,7 @@ function exportCSV() {
         `"${s.name}"`,
         `"${s.time}"`,
         `"${s.wx}"`,
-        s.cur_temp,
+        s.temp !== undefined ? s.temp : s.cur_temp,
         s.max_temp,
         s.min_temp,
         `"${s.rain}"`,
