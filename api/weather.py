@@ -146,11 +146,13 @@ class handler(BaseHTTPRequestHandler):
         if not clean_path:
             clean_path = "/"
 
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        api_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = os.path.dirname(api_dir)
 
         # 1. 根目錄或 index.html 請求：回傳 HTML 前端頁面
         if clean_path in ["/", "/index.html", "/index"]:
             for candidate in [
+                os.path.join(api_dir, "index.html"),
                 os.path.join(base_dir, "index.html"),
                 os.path.join(base_dir, "public", "index.html")
             ]:
@@ -160,6 +162,7 @@ class handler(BaseHTTPRequestHandler):
                     self.send_response(200)
                     self.send_header("Content-Type", "text/html; charset=utf-8")
                     self.send_header("Content-Length", str(len(data)))
+                    self.send_header("X-App-Version", "v4-static-routed")
                     self.end_headers()
                     self.wfile.write(data)
                     return
@@ -179,8 +182,10 @@ class handler(BaseHTTPRequestHandler):
         _, ext = os.path.splitext(filename)
         if ext in static_ext_map and not clean_path.startswith("/api"):
             for candidate in [
+                os.path.join(api_dir, filename),
                 os.path.join(base_dir, filename),
                 os.path.join(base_dir, "public", filename),
+                os.path.join(api_dir, clean_path.lstrip("/")),
                 os.path.join(base_dir, clean_path.lstrip("/")),
                 os.path.join(base_dir, "public", clean_path.lstrip("/"))
             ]:
@@ -191,6 +196,7 @@ class handler(BaseHTTPRequestHandler):
                     self.send_header("Content-Type", static_ext_map[ext])
                     self.send_header("Content-Length", str(len(data)))
                     self.send_header("Cache-Control", "public, max-age=3600")
+                    self.send_header("X-App-Version", "v4-static-routed")
                     self.end_headers()
                     self.wfile.write(data)
                     return
@@ -200,7 +206,8 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
-        self.send_header("Cache-Control", "public, max-age=300, s-maxage=600")
+        self.send_header("Cache-Control", "public, max-age=60, s-maxage=120")
+        self.send_header("X-App-Version", "v4-static-routed")
         self.end_headers()
 
         api_key = os.getenv("CWA_API_KEY", "")

@@ -1,0 +1,497 @@
+/* =========================================================
+   style.css - 類 Windy 暗黑透明玻璃擬態樣式表
+   ========================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+
+:root {
+    --bg-dark: #080c14;
+    --panel-bg: rgba(15, 23, 42, 0.75);
+    --panel-border: rgba(255, 255, 255, 0.08);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --accent-sky: #38bdf8;
+    --accent-indigo: #818cf8;
+    --accent-coral: #f43f5e;
+    --accent-emerald: #10b981;
+    --accent-amber: #f59e0b;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: radial-gradient(circle at 50% 5%, #111827 0%, #06090e 100%);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+}
+
+/* 頂部 Header */
+.app-header {
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--panel-border);
+    backdrop-filter: blur(16px);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.logo-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-icon {
+    font-size: 2rem;
+}
+
+.app-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
+}
+
+.app-subtitle {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.header-badges {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.badge {
+    background: rgba(56, 189, 248, 0.12);
+    color: var(--accent-sky);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.badge-live {
+    background: rgba(16, 185, 129, 0.15) !important;
+    color: var(--accent-emerald) !important;
+    border-color: rgba(16, 185, 129, 0.4) !important;
+}
+
+.btn {
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-sync {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    border: 1px solid var(--panel-border);
+    padding: 7px 14px;
+}
+.btn-sync:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.btn-export {
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--accent-sky);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 8px 16px;
+}
+.btn-export:hover {
+    background: rgba(56, 189, 248, 0.25);
+}
+
+/* 主容器 */
+.dashboard-container {
+    flex: 1;
+    max-width: 1440px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 指標卡片區 (Metrics Grid) */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.glass-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.glass-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(56, 189, 248, 0.35);
+}
+
+.metric-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.metric-value {
+    font-size: 1.65rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.metric-sub {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* 視覺雙欄分割區 */
+.visual-split {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 20px;
+}
+
+.map-card, .side-panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    padding: 18px;
+    backdrop-filter: blur(14px);
+    display: flex;
+    flex-direction: column;
+}
+
+.card-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.card-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.card-sub-info {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+#leaflet-map {
+    height: 490px;
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--panel-border);
+    z-index: 10;
+    background: #111726 !important; /* 海洋：更深灰藍 (#111726) */
+}
+
+/* 壓低道路存在感：主要道路淡灰，小路退居背景，不搶天氣 Marker 注意力 */
+#leaflet-map .leaflet-tile-pane {
+    opacity: 0.32;
+    filter: brightness(0.65) contrast(1.1);
+}
+
+/* 天氣 Marker 外發光 (Glow) 與白色半透明外框 */
+.weather-circle-marker {
+    filter: drop-shadow(0 0 6px rgba(251, 146, 60, 0.75));
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+.weather-circle-marker:hover {
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 14px rgba(251, 146, 60, 0.9));
+}
+
+/* 主要城市名稱標籤 (台北、台中、高雄、花蓮、台東... 白色/淺灰、無鄉鎮雜訊) */
+.city-label-icon {
+    background: transparent !important;
+    border: none !important;
+}
+.city-label-text {
+    color: #e2e8f0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 6px #0b0f19;
+    pointer-events: none;
+    white-space: nowrap;
+    opacity: 0.9;
+}
+
+/* 點擊 Popup 視窗深色科技擬態美化 */
+.leaflet-popup-content-wrapper {
+    background: rgba(15, 23, 42, 0.95) !important;
+    border: 1px solid rgba(56, 189, 248, 0.3) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6) !important;
+    color: #f8fafc !important;
+    backdrop-filter: blur(12px) !important;
+}
+.leaflet-popup-tip {
+    background: #0f172a !important;
+}
+
+/* Windy 溫標色帶 */
+.windy-legend-bar {
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-top: 12px;
+}
+
+.legend-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.gradient-strip {
+    height: 10px;
+    border-radius: 5px;
+    background: linear-gradient(to right, #2c7bb6, #5aa2cf, #7fcdbb, #fee08b, #fdae61, #f46d43, #d73027);
+    margin-bottom: 4px;
+}
+
+.legend-ticks {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+/* 右側控制面板與圖表 */
+.side-panel {
+    gap: 16px;
+}
+
+.control-box {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.control-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.control-field label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+
+.custom-select {
+    width: 100%;
+    background: #0f172a;
+    color: var(--text-primary);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+.custom-select:focus {
+    border-color: var(--accent-sky);
+}
+
+.layer-toggle-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.layer-lbl {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.layer-btn {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    border: 1px solid var(--panel-border);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+.layer-btn.active, .layer-btn:hover {
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--accent-sky);
+    border-color: rgba(56, 189, 248, 0.35);
+}
+
+.chart-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-canvas-container {
+    flex: 1;
+    min-height: 380px;
+    width: 100%;
+}
+
+/* 底部資料表 */
+.table-section {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    padding: 20px;
+    backdrop-filter: blur(14px);
+}
+
+.table-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.table-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.search-input {
+    background: #0f172a;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    width: 260px;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+.search-input:focus {
+    border-color: var(--accent-sky);
+}
+
+.table-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    text-align: left;
+}
+
+.data-table th {
+    background: rgba(15, 23, 42, 0.95);
+    color: var(--text-secondary);
+    padding: 12px 14px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--panel-border);
+    white-space: nowrap;
+}
+
+.data-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: #e2e8f0;
+    white-space: nowrap;
+}
+
+.data-table tr:hover td {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* 頁尾 */
+.app-footer {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    border-top: 1px solid var(--panel-border);
+    background: var(--panel-bg);
+}
+.app-footer a {
+    color: var(--accent-sky);
+    text-decoration: none;
+}
+
+/* 響應式調整 */
+@media (max-width: 1024px) {
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .visual-split {
+        grid-template-columns: 1fr;
+    }
+}
+@media (max-width: 640px) {
+    .metrics-grid {
+        grid-template-columns: 1fr;
+    }
+    .control-row {
+        grid-template-columns: 1fr;
+    }
+    .table-header-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}
