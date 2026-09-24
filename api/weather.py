@@ -234,6 +234,9 @@ class handler(BaseHTTPRequestHandler):
 
         self.wfile.write(json.dumps(result, ensure_ascii=False).encode("utf-8"))
 
+    def do_HEAD(self):
+        self.do_GET()
+
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
