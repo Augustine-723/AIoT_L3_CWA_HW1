@@ -32,46 +32,64 @@
         <!-- 4 塊玻璃擬態指標卡片 (Glassmorphism Metric Cards) -->
         <section class="metrics-grid">
             <div class="glass-card">
-                <div class="metric-label">📍 當前觀測站點</div>
+                <div class="metric-top">
+                    <span class="metric-label">📍 當前觀測站點</span>
+                    <span class="metric-tag" id="tag-county">臺灣</span>
+                </div>
                 <div class="metric-value" id="card-station" style="color: #38bdf8;">--</div>
                 <div class="metric-sub" id="card-time">觀測時間: --</div>
             </div>
             <div class="glass-card">
-                <div class="metric-label">🌡️ 今日極值溫幅 (Min ~ Max)</div>
-                <div class="metric-value" id="card-range" style="color: #fb923c;">--°C ~ --°C</div>
-                <div class="metric-sub" id="card-cur-temp">當前氣溫: --°C</div>
+                <div class="metric-top">
+                    <span class="metric-label">🌡️ 即時氣溫 / 今日溫幅</span>
+                    <span class="metric-tag" id="tag-temp-mode">即時</span>
+                </div>
+                <div class="metric-value" id="card-cur-temp" style="color: #fb923c;">--°C</div>
+                <div class="metric-sub" id="card-range">今日極值: --°C ~ --°C</div>
             </div>
             <div class="glass-card">
-                <div class="metric-label">🌧️ 即時雨量 / 降雨</div>
+                <div class="metric-top">
+                    <span class="metric-label">🌧️ 即時降雨觀測</span>
+                    <span class="metric-tag" id="tag-rain-mode">日累積</span>
+                </div>
                 <div class="metric-value" id="card-rain" style="color: #06b6d4;">-- mm</div>
-                <div class="metric-sub">累積降水量觀測</div>
+                <div class="metric-sub" id="card-rain-sub">自動雨量測站累積水深</div>
             </div>
             <div class="glass-card">
-                <div class="metric-label">⛅ 天氣型態與濕度</div>
-                <div class="metric-value" id="card-wx" style="color: #c084fc; font-size: 1.45rem;">--</div>
+                <div class="metric-top">
+                    <span class="metric-label">⛅ 天氣型態與濕度</span>
+                    <span class="metric-tag" id="tag-wx-mode">環境氣壓</span>
+                </div>
+                <div class="metric-value" id="card-wx" style="color: #c084fc;">--</div>
                 <div class="metric-sub" id="card-hum">濕度: -- | 氣壓: --</div>
             </div>
         </section>
 
-        <!-- 中間核心視覺區：左側地圖，右側控制面板與 Chart.js 圖表 -->
+        <!-- 中間核心視覺區：左側放大地圖，右側控制面板與 Chart.js 圖表 -->
         <section class="visual-split">
-            <!-- 左欄：Leaflet 地圖 -->
+            <!-- 左欄：Leaflet 地圖 (放大視覺呈現) -->
             <div class="map-card">
                 <div class="card-header-bar">
-                    <span class="card-title">🗺️ 全島自動測站氣象分佈圖</span>
-                    <span class="card-sub-info" id="station-count-info">底圖: Esri Dark Gray · 座標: WGS84</span>
+                    <div class="card-title-group">
+                        <span class="card-title">🗺️ 全島自動測站氣象分佈圖</span>
+                        <span class="card-sub-info" id="station-count-info">底圖: Esri Dark Gray · 座標: WGS84</span>
+                    </div>
                 </div>
                 <div id="leaflet-map"></div>
 
-                <!-- 類 Windy 底部溫標漸層色帶 (Windy Color Scale Bar) -->
+                <!-- 簡化溫標圖例 (Sleek Windy Scale) -->
                 <div class="windy-legend-bar">
                     <div class="legend-header">
-                        <span>°C 氣溫色階圖例 (Windy Scale)</span>
-                        <span>極低 ➔ 極高溫</span>
-                    </div>
-                    <div class="gradient-strip"></div>
-                    <div class="legend-ticks">
-                        <span>5°</span><span>12°</span><span>16°</span><span>20°</span><span>24°</span><span>28°</span><span>32°</span><span>36°C+</span>
+                        <span class="legend-title">°C 氣溫色標</span>
+                        <div class="gradient-strip"></div>
+                        <div class="legend-scale-labels">
+                            <span>&lt;16°</span>
+                            <span>20°</span>
+                            <span>24°</span>
+                            <span>28°</span>
+                            <span>32°</span>
+                            <span>36°+</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -115,7 +133,7 @@
             </div>
         </section>
 
-        <!-- 底部：詳細資料表 -->
+        <!-- 底部：詳細資料表 (支援分頁與即時搜尋) -->
         <section class="table-section">
             <div class="table-header-bar">
                 <span class="card-title">📋 觀測站即時記錄表</span>
@@ -146,11 +164,22 @@
                     </tbody>
                 </table>
             </div>
+            <!-- 表格分頁控制列 -->
+            <div class="table-pagination">
+                <div class="pagination-info" id="pagination-info">顯示 0 - 0 筆，共 0 筆測站</div>
+                <div class="pagination-controls">
+                    <button class="page-btn" id="btn-first-page" title="第一頁">⏮</button>
+                    <button class="page-btn" id="btn-prev-page" title="上一頁">◀ 上一頁</button>
+                    <span class="page-current" id="page-num-display">第 1 / 1 頁</span>
+                    <button class="page-btn" id="btn-next-page" title="下一頁">下一頁 ▶</button>
+                    <button class="page-btn" id="btn-last-page" title="最後一頁">⏭</button>
+                </div>
+            </div>
         </section>
     </main>
 
     <footer class="app-footer">
-        <p>AIoT L3 HW1 · 氣象資料來源：<a href="https://opendata.cwa.gov.tw/" target="_blank">交通部中央氣象署開放資料平臺</a> · 類 Windy 擬態視覺呈現</p>
+        <p>AIoT L3 HW1 · Data: <a href="https://opendata.cwa.gov.tw/" target="_blank" rel="noopener noreferrer">CWA Open Data</a></p>
     </footer>
 
     <!-- Leaflet JS & Taiwan County Boundaries -->

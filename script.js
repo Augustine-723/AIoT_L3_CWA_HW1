@@ -1,6 +1,6 @@
 /**
  * script.js - 臺灣即時氣象地圖前端互動邏輯 (Vercel Edition)
- * 整合 Leaflet Dark Map (Esri Dark Gray)、Chart.js、CWA API (/api/weather) 與 CSV 匯出
+ * 整合 Leaflet Dark Map (Esri Dark Gray)、Chart.js、CWA API (/api/weather) 與分頁報表
  */
 
 // 全域狀態變數
@@ -11,6 +11,10 @@ let currentLayer = "temp"; // 'temp', 'rain', 'station'
 let map = null;
 let markerLayerGroup = null;
 let chartInstance = null;
+
+// 表格分頁狀態
+let currentPage = 1;
+const PAGE_SIZE = 15;
 
 // Windy 溫標色階對應函式
 function getWindyColor(temp) {
@@ -56,7 +60,7 @@ const MAJOR_CITIES = [
     { name: "澎湖", lat: 23.5712, lon: 119.5793 }
 ];
 
-// 初始化地圖 (防禦性載入，避免因地圖或圖層問題阻斷全站邏輯)
+// 初始化地圖 (防禦性載入，地圖放大為 590px 寬廣視野)
 function initMap() {
     if (typeof L === 'undefined') {
         console.warn("Leaflet library (L) is not loaded yet.");
@@ -73,7 +77,7 @@ function initMap() {
         
         L.control.zoom({ position: 'topright' }).addTo(map);
 
-        // 1. 底圖底層：Esri Dark Gray，opacity 從 0.35 提高至 0.8
+        // 1. 底圖底層：Esri Dark Gray，opacity 為 0.8
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 16,
             opacity: 0.8
@@ -84,10 +88,10 @@ function initMap() {
             try {
                 L.geoJSON(TW_COUNTIES_GEOJSON, {
                     style: {
-                        color: 'rgba(148, 163, 184, 0.45)', // 淡灰細線
+                        color: 'rgba(148, 163, 184, 0.45)',
                         weight: 1.2,
                         opacity: 0.8,
-                        fillColor: '#1f2937',               // 陸地深灰藍
+                        fillColor: '#1f2937',
                         fillOpacity: 0.72,
                         dashArray: '3, 4'
                     }
@@ -113,6 +117,11 @@ function initMap() {
         });
 
         markerLayerGroup = L.layerGroup().addTo(map);
+
+        // 確保地圖放大後容器視圖尺寸重算
+        setTimeout(() => {
+            if (map) map.invalidateSize();
+        }, 200);
     } catch (e) {
         console.error("initMap encountered an error:", e);
     }
@@ -216,7 +225,7 @@ function renderMapMarkers() {
     }
 }
 
-// 選擇單一測站並連動更新全站介面
+// 選擇單一測站並連動更新 4 塊資訊卡
 function selectStation(st) {
     if (!st) return;
     currentStation = st;
@@ -226,21 +235,27 @@ function selectStation(st) {
     const minTemp = (st.min_temp !== undefined && st.min_temp !== null) ? st.min_temp : "--";
     const maxTemp = (st.max_temp !== undefined && st.max_temp !== null) ? st.max_temp : "--";
 
+    // 卡片 1: 觀測站名稱與縣市標籤
     const elStation = document.getElementById('card-station');
-    if (elStation) elStation.innerText = `${st.county || ''} - ${st.name || ''}`;
+    if (elStation) elStation.innerText = `${st.name || '--'}`;
+    const elTagCounty = document.getElementById('tag-county');
+    if (elTagCounty) elTagCounty.innerText = st.county || '臺灣';
 
     const elTime = document.getElementById('card-time');
     if (elTime) elTime.innerText = `觀測時間: ${st.time || '--'}`;
 
-    const elRange = document.getElementById('card-range');
-    if (elRange) elRange.innerText = `${minTemp}°C ~ ${maxTemp}°C`;
-
+    // 卡片 2: 即時氣溫與今日溫幅
     const elCur = document.getElementById('card-cur-temp');
-    if (elCur) elCur.innerText = `即時氣溫: ${stationTemp}°C`;
+    if (elCur) elCur.innerText = `${stationTemp}°C`;
 
+    const elRange = document.getElementById('card-range');
+    if (elRange) elRange.innerText = `今日極值: ${minTemp}°C ~ ${maxTemp}°C`;
+
+    // 卡片 3: 雨量
     const elRain = document.getElementById('card-rain');
     if (elRain) elRain.innerText = st.rain || "0.0 mm";
 
+    // 卡片 4: 天氣現象與濕度氣壓
     const elWx = document.getElementById('card-wx');
     if (elWx) elWx.innerText = st.wx || "晴";
 
@@ -320,7 +335,7 @@ function updateChart() {
                     {
                         label: '最高溫 (MaxT)',
                         data: maxTemps,
-                        borderColor: '#f43f5e', // 霓虹珊瑚紅
+                        borderColor: '#f43f5e',
                         backgroundColor: 'rgba(244, 63, 94, 0.1)',
                         borderWidth: 3,
                         tension: 0.35,
@@ -333,7 +348,7 @@ function updateChart() {
                     {
                         label: '最低溫 (MinT)',
                         data: minTemps,
-                        borderColor: '#38bdf8', // 霓虹天空藍
+                        borderColor: '#38bdf8',
                         backgroundColor: 'rgba(56, 189, 248, 0.05)',
                         borderWidth: 3,
                         borderDash: [5, 5],
@@ -395,16 +410,29 @@ function updateChart() {
     }
 }
 
-// 渲染詳細資料表
-function renderTable(stationsToRender) {
+// 渲染詳細資料表 (支援 15 筆分頁與即時篩選)
+function renderTable(stations) {
     const tbody = document.getElementById('table-body');
     if (!tbody) return;
-    if (!stationsToRender || stationsToRender.length === 0) {
+
+    const dataList = stations !== undefined ? stations : filteredStations;
+    const totalCount = dataList.length;
+
+    if (totalCount === 0) {
         tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding: 25px; color:#94a3b8;">查無符合條件的測站記錄。</td></tr>';
+        updatePaginationUI(0, 1);
         return;
     }
 
-    const html = stationsToRender.map(st => {
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE) || 1;
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    const endIndex = Math.min(startIndex + PAGE_SIZE, totalCount);
+    const pageStations = dataList.slice(startIndex, endIndex);
+
+    const html = pageStations.map(st => {
         const displayTemp = (st.temp !== undefined && st.temp !== null) ? st.temp : ((st.cur_temp !== undefined && st.cur_temp !== null) ? st.cur_temp : "--");
         const latStr = (st.lat !== undefined && st.lat !== null && !isNaN(Number(st.lat))) ? Number(st.lat).toFixed(2) : "--";
         const lonStr = (st.lon !== undefined && st.lon !== null && !isNaN(Number(st.lon))) ? Number(st.lon).toFixed(2) : "--";
@@ -429,6 +457,38 @@ function renderTable(stationsToRender) {
     }).join('');
 
     tbody.innerHTML = html;
+    updatePaginationUI(totalCount, totalPages);
+}
+
+// 更新分頁控制元件狀態
+function updatePaginationUI(totalCount, totalPages) {
+    const infoEl = document.getElementById('pagination-info');
+    if (infoEl) {
+        if (totalCount === 0) {
+            infoEl.innerText = "顯示 0 - 0 筆，共 0 筆測站";
+        } else {
+            const start = (currentPage - 1) * PAGE_SIZE + 1;
+            const end = Math.min(currentPage * PAGE_SIZE, totalCount);
+            infoEl.innerText = `顯示第 ${start} - ${end} 筆，共 ${totalCount} 筆測站`;
+        }
+    }
+
+    const pageDisplay = document.getElementById('page-num-display');
+    if (pageDisplay) {
+        pageDisplay.innerText = `第 ${currentPage} / ${totalPages} 頁`;
+    }
+
+    const btnFirst = document.getElementById('btn-first-page');
+    if (btnFirst) btnFirst.disabled = (currentPage <= 1);
+
+    const btnPrev = document.getElementById('btn-prev-page');
+    if (btnPrev) btnPrev.disabled = (currentPage <= 1);
+
+    const btnNext = document.getElementById('btn-next-page');
+    if (btnNext) btnNext.disabled = (currentPage >= totalPages);
+
+    const btnLast = document.getElementById('btn-last-page');
+    if (btnLast) btnLast.disabled = (currentPage >= totalPages);
 }
 
 // 點選表格列連動切換
@@ -451,6 +511,9 @@ function handleCountyChange() {
         filteredStations = allStations.filter(s => s.county === county);
     }
 
+    // 重設分頁至第一頁
+    currentPage = 1;
+
     // 更新站點下拉選單
     const stationSelect = document.getElementById('select-station');
     if (stationSelect) {
@@ -464,7 +527,6 @@ function handleCountyChange() {
         countInfo.innerText = `已顯示 ${filteredStations.length} 個站點 · Esri Dark Gray`;
     }
 
-    // 優先更新指標卡片 (即使後續地圖或圖表繪製發生異常，卡片資料也已正確灌入)
     if (filteredStations.length > 0) {
         selectStation(filteredStations[0]);
     }
@@ -505,7 +567,7 @@ function exportCSV() {
     document.body.removeChild(link);
 }
 
-// 核心資料載入函式
+// 核心資料載入函式 (含錯誤處理與紅色警示提示)
 async function loadWeatherData() {
     const badge = document.getElementById('status-badge');
     if (badge) {
@@ -518,6 +580,11 @@ async function loadWeatherData() {
         const response = await fetch('/api/weather');
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
+        
+        if (!data || !data.stations || data.stations.length === 0) {
+            throw new Error("API 資料格式異常或無站點資料");
+        }
+
         console.log("成功取得氣象 API 資料:", data);
 
         allStations = (data.stations || []).map(st => ({
@@ -540,29 +607,36 @@ async function loadWeatherData() {
             badge.className = data.is_live ? "badge badge-live" : "badge";
         }
 
+        currentPage = 1;
         handleCountyChange();
     } catch (err) {
-        console.warn("無法取得 /api/weather，切換至本機備用展示資料:", err);
-        if (badge) {
-            badge.innerText = "🟡 離線示範模式";
-            badge.className = "badge";
-        }
+        console.error("無法取得 /api/weather:", err);
         
-        // 使用預設示範資料
-        allStations = [
-            { id: "466920", name: "臺北", county: "臺北市", town: "中正區", lat: 25.0377, lon: 121.5149, temp: 28.5, cur_temp: 28.5, min_temp: 23.2, max_temp: 31.8, wx: "晴時多雲", rain: "0.0 mm", humidity: "65%", pressure: "1012.4 hPa", time: "2026-09-24 12:00:00" },
-            { id: "466880", name: "板橋", county: "新北市", town: "板橋區", lat: 25.0000, lon: 121.4420, temp: 29.1, cur_temp: 29.1, min_temp: 23.8, max_temp: 32.2, wx: "多雲", rain: "0.0 mm", humidity: "68%", pressure: "1012.1 hPa", time: "2026-09-24 12:00:00" },
-            { id: "466940", name: "基隆", county: "基隆市", town: "仁愛區", lat: 25.1333, lon: 121.7405, temp: 28.2, cur_temp: 28.2, min_temp: 23.7, max_temp: 28.4, wx: "多雲局部雨", rain: "1.5 mm", humidity: "75%", pressure: "1012.5 hPa", time: "2026-09-24 12:00:00" },
-            { id: "467490", name: "臺中", county: "臺中市", town: "北區", lat: 24.1457, lon: 120.6840, temp: 30.4, cur_temp: 30.4, min_temp: 24.5, max_temp: 33.1, wx: "晴天", rain: "0.0 mm", humidity: "60%", pressure: "1011.8 hPa", time: "2026-09-24 12:00:00" },
-            { id: "467440", name: "高雄", county: "高雄市", town: "前鎮區", lat: 22.5660, lon: 120.3157, temp: 31.2, cur_temp: 31.2, min_temp: 25.4, max_temp: 33.6, wx: "晴朗", rain: "0.0 mm", humidity: "72%", pressure: "1011.2 hPa", time: "2026-09-24 12:00:00" },
-            { id: "467410", name: "臺南", county: "臺南市", town: "中西區", lat: 22.9933, lon: 120.2048, temp: 30.8, cur_temp: 30.8, min_temp: 24.8, max_temp: 32.8, wx: "晴時多雲", rain: "0.0 mm", humidity: "70%", pressure: "1011.5 hPa", time: "2026-09-24 12:00:00" },
-        ];
-        filteredStations = [...allStations];
-        handleCountyChange();
+        // 當 API 錯誤時，改為紅色提示「氣象資料讀取失敗，請重新整理」
+        if (badge) {
+            badge.innerText = "❌ 氣象資料讀取失敗，請重新整理";
+            badge.className = "badge badge-error";
+        }
+
+        // 資料表提示錯誤
+        const tbody = document.getElementById('table-body');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding: 36px; color:#fb7185; font-weight:600; font-size: 0.95rem;">❌ 氣象資料讀取失敗，請重新整理</td></tr>';
+        }
+
+        // 資訊卡顯示錯誤重試提示
+        const elStation = document.getElementById('card-station');
+        if (elStation) elStation.innerText = "讀取失敗";
+        const elTime = document.getElementById('card-time');
+        if (elTime) elTime.innerText = "請點擊上方重新整理按鈕重試";
+        const elCur = document.getElementById('card-cur-temp');
+        if (elCur) elCur.innerText = "--°C";
+        const elRange = document.getElementById('card-range');
+        if (elRange) elRange.innerText = "今日極值: --°C ~ --°C";
     }
 }
 
-// 綁定所有互動事件
+// 綁定所有互動事件 (包含分頁按鈕)
 function bindEvents() {
     const countySelect = document.getElementById('select-county');
     if (countySelect) countySelect.addEventListener('change', handleCountyChange);
@@ -585,11 +659,12 @@ function bindEvents() {
         });
     });
 
-    // 搜尋過濾表格
+    // 搜尋過濾表格 (即時搜尋並重設分頁)
     const searchInput = document.getElementById('table-search');
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
             const query = e.target.value.toLowerCase().trim();
+            currentPage = 1;
             if (!query) {
                 renderTable(filteredStations);
                 return;
@@ -604,14 +679,62 @@ function bindEvents() {
         });
     }
 
+    // 表格分頁按鈕監聽
+    const btnFirst = document.getElementById('btn-first-page');
+    if (btnFirst) {
+        btnFirst.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage = 1;
+                renderTable();
+            }
+        });
+    }
+
+    const btnPrev = document.getElementById('btn-prev-page');
+    if (btnPrev) {
+        btnPrev.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderTable();
+            }
+        });
+    }
+
+    const btnNext = document.getElementById('btn-next-page');
+    if (btnNext) {
+        btnNext.addEventListener('click', () => {
+            const totalPages = Math.ceil(filteredStations.length / PAGE_SIZE) || 1;
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderTable();
+            }
+        });
+    }
+
+    const btnLast = document.getElementById('btn-last-page');
+    if (btnLast) {
+        btnLast.addEventListener('click', () => {
+            const totalPages = Math.ceil(filteredStations.length / PAGE_SIZE) || 1;
+            if (currentPage < totalPages) {
+                currentPage = totalPages;
+                renderTable();
+            }
+        });
+    }
+
     const exportBtn = document.getElementById('btn-export-csv');
     if (exportBtn) exportBtn.addEventListener('click', exportCSV);
 
     const refreshBtn = document.getElementById('btn-refresh');
     if (refreshBtn) refreshBtn.addEventListener('click', loadWeatherData);
+
+    // 視窗調整尺寸時自適應 Leaflet
+    window.addEventListener('resize', () => {
+        if (map) map.invalidateSize();
+    });
 }
 
-// 程式主進入點：安全支援 DOMContentLoaded 及已載入完成狀態
+// 程式主進入點
 function initApp() {
     console.log("氣象地圖應用程式初始化中...");
     try {

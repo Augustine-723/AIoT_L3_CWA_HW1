@@ -95,6 +95,18 @@ body {
     border-color: rgba(16, 185, 129, 0.4) !important;
 }
 
+.badge-error {
+    background: rgba(244, 63, 94, 0.18) !important;
+    color: #fb7185 !important;
+    border-color: rgba(244, 63, 94, 0.45) !important;
+    animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-red {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(244, 63, 94, 0); }
+}
+
 .btn {
     border: none;
     border-radius: 8px;
@@ -150,14 +162,24 @@ body {
     background: var(--panel-bg);
     border: 1px solid var(--panel-border);
     border-radius: 14px;
-    padding: 16px 20px;
+    padding: 16px 18px;
     backdrop-filter: blur(14px);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
     transition: transform 0.2s ease, border-color 0.2s ease;
 }
 .glass-card:hover {
     transform: translateY(-2px);
     border-color: rgba(56, 189, 248, 0.35);
+}
+
+.metric-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
 }
 
 .metric-label {
@@ -166,7 +188,16 @@ body {
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 4px;
+}
+
+.metric-tag {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 2px 7px;
+    border-radius: 6px;
 }
 
 .metric-value {
@@ -178,13 +209,13 @@ body {
 .metric-sub {
     font-size: 0.78rem;
     color: var(--text-muted);
-    margin-top: 4px;
+    margin-top: 6px;
 }
 
-/* 視覺雙欄分割區 */
+/* 視覺雙欄分割區 (地圖放大為主力佔比 1.35fr) */
 .visual-split {
     display: grid;
-    grid-template-columns: 1.2fr 0.8fr;
+    grid-template-columns: 1.35fr 0.85fr;
     gap: 20px;
 }
 
@@ -205,6 +236,12 @@ body {
     margin-bottom: 12px;
 }
 
+.card-title-group {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
 .card-title {
     font-size: 1.05rem;
     font-weight: 700;
@@ -216,20 +253,20 @@ body {
     color: var(--text-muted);
 }
 
+/* 地圖放大呈現 (590px 寬廣視野) */
 #leaflet-map {
-    height: 490px;
+    height: 590px;
     width: 100%;
     border-radius: 12px;
     overflow: hidden;
     border: 1px solid var(--panel-border);
     z-index: 10;
-    background: #111726 !important; /* 海洋：更深灰藍 (#111726) */
+    background: #111726 !important;
 }
 
-/* 壓低道路存在感：主要道路淡灰，小路退居背景，不搶天氣 Marker 注意力 */
+/* 讓底圖清晰顯示地理道路與地形細節，Marker 點位對齊精確 */
 #leaflet-map .leaflet-tile-pane {
-    opacity: 0.32;
-    filter: brightness(0.65) contrast(1.1);
+    opacity: 0.95;
 }
 
 /* 天氣 Marker 外發光 (Glow) 與白色半透明外框 */
@@ -242,7 +279,7 @@ body {
     filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 14px rgba(251, 146, 60, 0.9));
 }
 
-/* 主要城市名稱標籤 (台北、台中、高雄、花蓮、台東... 白色/淺灰、無鄉鎮雜訊) */
+/* 主要城市名稱標籤 */
 .city-label-icon {
     background: transparent !important;
     border: none !important;
@@ -255,7 +292,7 @@ body {
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 6px #0b0f19;
     pointer-events: none;
     white-space: nowrap;
-    opacity: 0.9;
+    opacity: 0.92;
 }
 
 /* 點擊 Popup 視窗深色科技擬態美化 */
@@ -271,37 +308,43 @@ body {
     background: #0f172a !important;
 }
 
-/* Windy 溫標色帶 */
+/* 簡化溫標色帶 (Sleek Windy Scale) */
 .windy-legend-bar {
     background: rgba(15, 23, 42, 0.88);
     border: 1px solid var(--panel-border);
     border-radius: 10px;
-    padding: 10px 14px;
-    margin-top: 12px;
+    padding: 8px 14px;
+    margin-top: 10px;
 }
 
 .legend-header {
     display: flex;
-    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.legend-title {
     font-size: 11px;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 6px;
+    white-space: nowrap;
 }
 
 .gradient-strip {
-    height: 10px;
-    border-radius: 5px;
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
     background: linear-gradient(to right, #2c7bb6, #5aa2cf, #7fcdbb, #fee08b, #fdae61, #f46d43, #d73027);
-    margin-bottom: 4px;
 }
 
-.legend-ticks {
+.legend-scale-labels {
     display: flex;
-    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
     font-size: 10px;
     color: var(--text-secondary);
     font-weight: 600;
+    white-space: nowrap;
 }
 
 /* 右側控制面板與圖表 */
@@ -459,6 +502,54 @@ body {
     background: rgba(255, 255, 255, 0.03);
 }
 
+/* 表格分頁控制列 */
+.table-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 6px 4px 6px;
+    border-top: 1px solid var(--panel-border);
+    margin-top: 12px;
+}
+
+.pagination-info {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.page-btn {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.page-btn:hover:not(:disabled) {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.35);
+    color: var(--accent-sky);
+}
+.page-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.page-current {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 0 8px;
+}
+
 /* 頁尾 */
 .app-footer {
     text-align: center;
@@ -473,25 +564,68 @@ body {
     text-decoration: none;
 }
 
-/* 響應式調整 */
-@media (max-width: 1024px) {
+/* 響應式調整：手機版四張卡片 2x2，地圖與控制面板上下排列 */
+@media (max-width: 900px) {
+    .dashboard-container {
+        padding: 14px;
+        gap: 14px;
+    }
     .metrics-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px;
     }
     .visual-split {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
     }
-}
-@media (max-width: 640px) {
-    .metrics-grid {
-        grid-template-columns: 1fr;
+    #leaflet-map {
+        height: 420px;
     }
-    .control-row {
-        grid-template-columns: 1fr;
+    .chart-canvas-container {
+        min-height: 280px;
     }
     .table-header-bar {
         flex-direction: column;
         align-items: flex-start;
         gap: 10px;
+    }
+    .table-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .search-input {
+        width: 100%;
+    }
+    .table-pagination {
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+    }
+}
+
+@media (max-width: 540px) {
+    .app-header {
+        padding: 12px 14px;
+    }
+    .logo-icon {
+        font-size: 1.5rem;
+    }
+    .app-title {
+        font-size: 1.15rem;
+    }
+    .app-subtitle {
+        font-size: 0.7rem;
+    }
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px;
+    }
+    .glass-card {
+        padding: 12px 14px;
+    }
+    .metric-value {
+        font-size: 1.35rem;
+    }
+    #leaflet-map {
+        height: 360px;
     }
 }
