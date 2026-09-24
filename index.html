@@ -96,8 +96,17 @@
                         <span class="card-title">🗺️ 全島自動測站氣象分佈圖</span>
                         <span class="card-sub-info" id="station-count-info">底圖: Esri Dark Gray · 座標: WGS84</span>
                     </div>
-                    <!-- 右上角 地圖操作按鈕群 (回到全臺 + 放大地圖) -->
+                    <!-- 右上角 統一地圖操作按鈕群 (⛶ Expand, ◎ Locate, ⌂ Reset, 🌙 BaseMap, 🏷️ Label) -->
                     <div class="map-header-actions">
+                        <button class="btn btn-map-control" id="btn-toggle-temp-labels" title="開啟/關閉氣溫數值標籤 (28°)">
+                            <span>🏷️ 數值標籤</span>
+                        </button>
+                        <button class="btn btn-map-control" id="btn-toggle-basemap" title="切換深色 / 街道底圖">
+                            <span id="basemap-icon-text">🌙 深色底圖</span>
+                        </button>
+                        <button class="btn btn-map-control" id="btn-locate-user" title="定位所在位置或當前測站">
+                            <span>◎ 定位</span>
+                        </button>
                         <button class="btn btn-reset-map" id="btn-reset-map" title="回到全臺灣視角並清除選取">
                             <span>⌂ 回到全臺</span>
                         </button>
@@ -106,7 +115,19 @@
                         </button>
                     </div>
                 </div>
-                <!-- 地圖本體原始插槽 (580px 高度) -->
+
+                <!-- 懸浮精簡圖層控制面板 (Compact Floating Layer Panel) -->
+                <div class="compact-layer-panel" id="compact-layer-panel">
+                    <span class="compact-layer-title">觀測圖層:</span>
+                    <button class="compact-layer-btn active" data-layer="temp">🌡️ 氣溫</button>
+                    <button class="compact-layer-btn" data-layer="rain">🌧️ 雨量</button>
+                    <button class="compact-layer-btn" data-layer="wind">💨 風速風向</button>
+                    <button class="compact-layer-btn" data-layer="humidity">💧 濕度</button>
+                    <button class="compact-layer-btn" data-layer="wx">⛅ 天氣</button>
+                    <button class="compact-layer-btn" data-layer="station">📍 測站</button>
+                </div>
+
+                <!-- 地圖本體原始插槽 (約 640px 高度視覺主角) -->
                 <div id="map-slot-original" class="map-slot">
                     <div id="leaflet-map"></div>
                 </div>
@@ -155,6 +176,9 @@
                         <span class="layer-lbl">圖層模式:</span>
                         <button class="layer-btn active" data-layer="temp">🌡️ 氣溫</button>
                         <button class="layer-btn" data-layer="rain">🌧️ 雨量</button>
+                        <button class="layer-btn" data-layer="wind">💨 風速</button>
+                        <button class="layer-btn" data-layer="humidity">💧 濕度</button>
+                        <button class="layer-btn" data-layer="wx">⛅ 天氣</button>
                         <button class="layer-btn" data-layer="station">📍 測站</button>
                     </div>
                 </div>
@@ -214,6 +238,69 @@
                 </div>
             </div>
         </section>
+
+        <!-- 右側測站詳細資訊抽屜 (Station Detail Drawer) -->
+        <aside class="station-drawer glass-card" id="station-drawer" aria-hidden="true">
+            <div class="drawer-header">
+                <div class="drawer-title-group">
+                    <span class="drawer-tag" id="drawer-tag-county">全臺灣</span>
+                    <h3 class="drawer-station-name" id="drawer-station-name">請選擇測站</h3>
+                    <span class="drawer-station-id" id="drawer-station-id">--</span>
+                </div>
+                <button class="btn-close-drawer" id="btn-close-drawer" title="關閉詳細資訊抽屜 (ESC)">✕</button>
+            </div>
+            <div class="drawer-body">
+                <div class="drawer-metrics-grid">
+                    <div class="drawer-metric-card">
+                        <span class="dm-label">🌡️ 即時氣溫</span>
+                        <span class="dm-val text-orange" id="drawer-temp">--°C</span>
+                        <span class="dm-sub" id="drawer-range">極值: -- ~ --°C</span>
+                    </div>
+                    <div class="drawer-metric-card">
+                        <span class="dm-label">🌧️ 即時雨量</span>
+                        <span class="dm-val text-cyan" id="drawer-rain">-- mm</span>
+                        <span class="dm-sub">累積降水觀測</span>
+                    </div>
+                    <div class="drawer-metric-card">
+                        <span class="dm-label">💨 風速 / 風向</span>
+                        <div class="dm-wind-wrap">
+                            <span class="dm-val text-emerald" id="drawer-wind">-- m/s</span>
+                            <span class="drawer-wind-arrow" id="drawer-wind-arrow">↑</span>
+                        </div>
+                        <span class="dm-sub" id="drawer-wind-dir">風向角度: --°</span>
+                    </div>
+                    <div class="drawer-metric-card">
+                        <span class="dm-label">💧 相對濕度</span>
+                        <span class="dm-val text-purple" id="drawer-hum">--%</span>
+                        <span class="dm-sub">大氣水氣飽和度</span>
+                    </div>
+                    <div class="drawer-metric-card">
+                        <span class="dm-label">⏱️ 大氣氣壓</span>
+                        <span class="dm-val text-blue" id="drawer-pressure">-- hPa</span>
+                        <span class="dm-sub">地面氣壓計讀數</span>
+                    </div>
+                    <div class="drawer-metric-card">
+                        <span class="dm-label">⛅ 天氣型態</span>
+                        <span class="dm-val text-yellow" id="drawer-wx">--</span>
+                        <span class="dm-sub" id="drawer-time">時間: --</span>
+                    </div>
+                </div>
+                <div class="drawer-meta-list">
+                    <div class="drawer-meta-item">
+                        <span class="dmi-k">行政區</span>
+                        <span class="dmi-v" id="drawer-full-town">--</span>
+                    </div>
+                    <div class="drawer-meta-item">
+                        <span class="dmi-k">WGS84 座標</span>
+                        <span class="dmi-v" id="drawer-coords">--</span>
+                    </div>
+                </div>
+                <div class="drawer-actions">
+                    <button class="btn btn-drawer-action" id="drawer-btn-fly">📍 地圖聚焦</button>
+                    <button class="btn btn-drawer-action" id="drawer-btn-expand">⛶ 放大檢視</button>
+                </div>
+            </div>
+        </aside>
     </main>
 
     <!-- 放大地圖 Fullscreen Modal Overlay (約佔 90% 畫面，深色 Glassmorphism) -->
@@ -246,6 +333,9 @@
                     <div class="modal-layer-toggle">
                         <button class="layer-btn active modal-layer-btn" data-layer="temp">🌡️ 氣溫</button>
                         <button class="layer-btn modal-layer-btn" data-layer="rain">🌧️ 雨量</button>
+                        <button class="layer-btn modal-layer-btn" data-layer="wind">💨 風速</button>
+                        <button class="layer-btn modal-layer-btn" data-layer="humidity">💧 濕度</button>
+                        <button class="layer-btn modal-layer-btn" data-layer="wx">⛅ 天氣</button>
                         <button class="layer-btn modal-layer-btn" data-layer="station">📍 測站</button>
                     </div>
                 </div>

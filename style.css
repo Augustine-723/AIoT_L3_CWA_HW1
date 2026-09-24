@@ -312,11 +312,11 @@ body {
 }
 
 /* =========================================================
-   核心視覺區：左側 580px 地圖 + 右側 Floating Glass Panel
+   核心視覺區：左側 640px 地圖 (主角) + 右側 Floating Glass Panel
    ========================================================= */
 .visual-split {
     display: grid;
-    grid-template-columns: 1.35fr 0.85fr;
+    grid-template-columns: 1.5fr 0.85fr;
     gap: 20px;
 }
 
@@ -919,13 +919,43 @@ body {
     }
 }
 
-/* =========================================================
-   ⛶ 放大地圖與 ⌂ 回到全臺 按鈕群與 Fullscreen Modal Overlay
-   ========================================================= */
 .map-header-actions {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* 統一地圖控制按鈕 (Dark Glassmorphism) */
+.btn-map-control {
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--text-primary);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.btn-map-control:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.18);
+    transform: translateY(-1px);
+}
+
+.btn-map-control.active {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: var(--accent-sky);
+    color: var(--accent-sky);
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
 }
 
 .btn-reset-map {
@@ -934,14 +964,14 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.16);
     padding: 6px 13px;
     border-radius: 8px;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    backdrop-filter: blur(8px);
+    gap: 5px;
+    backdrop-filter: blur(10px);
 }
 
 .btn-reset-map:hover {
@@ -955,15 +985,15 @@ body {
     background: rgba(56, 189, 248, 0.12);
     color: var(--accent-sky);
     border: 1px solid rgba(56, 189, 248, 0.3);
-    padding: 6px 14px;
+    padding: 6px 13px;
     border-radius: 8px;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
 }
 
 .btn-expand-map:hover {
@@ -973,9 +1003,69 @@ body {
     transform: translateY(-1px);
 }
 
+/* 懸浮精簡圖層控制列 (Compact Floating Layer Panel) */
+.compact-layer-panel {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.compact-layer-panel::-webkit-scrollbar {
+    display: none;
+}
+
+.compact-layer-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    white-space: nowrap;
+    margin-right: 4px;
+}
+
+.compact-layer-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+    padding: 5px 11px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.compact-layer-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-1px);
+}
+
+.compact-layer-btn.active {
+    background: rgba(56, 189, 248, 0.22);
+    border-color: var(--accent-sky);
+    color: #f8fafc;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+    font-weight: 700;
+}
+
+/* 提高地圖至 640px 視覺焦點 */
 .map-slot {
     width: 100%;
-    height: 580px;
+    height: 640px;
     border-radius: 12px;
     overflow: hidden;
 }
@@ -1235,19 +1325,295 @@ body {
     z-index: 99999 !important;
 }
 
-/* 狀態列即時同調微調 */
-.chip-syncing {
-    background: rgba(56, 189, 248, 0.12) !important;
-    border-color: rgba(56, 189, 248, 0.35) !important;
-    color: var(--accent-sky) !important;
+/* =========================================================
+   右側測站詳細資訊抽屜 (Station Detail Drawer)
+   ========================================================= */
+.station-drawer {
+    position: fixed;
+    top: 90px;
+    right: 28px;
+    width: 360px;
+    max-width: 90vw;
+    max-height: calc(100vh - 120px);
+    background: rgba(15, 23, 42, 0.94);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 20px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    padding: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    transform: translateX(130%);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s;
+    opacity: 0;
+    pointer-events: none;
 }
 
-.chip-spin {
+.station-drawer.active {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.drawer-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 14px;
+}
+
+.drawer-tag {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--accent-sky);
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    padding: 2px 8px;
+    border-radius: 6px;
     display: inline-block;
-    animation: spin 1s linear infinite;
+    margin-bottom: 4px;
 }
 
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+.drawer-station-name {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.2;
+}
+
+.drawer-station-id {
+    font-size: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+}
+
+.btn-close-drawer {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+}
+
+.btn-close-drawer:hover {
+    background: rgba(244, 63, 94, 0.25);
+    border-color: rgba(244, 63, 94, 0.5);
+    color: #fb7185;
+    transform: scale(1.08) rotate(90deg);
+}
+
+.drawer-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.drawer-metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.drawer-metric-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.dm-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.dm-val {
+    font-size: 1.25rem;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', 'Inter', sans-serif;
+    line-height: 1.2;
+}
+
+.dm-sub {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+}
+
+.dm-wind-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.drawer-wind-arrow {
+    display: inline-block;
+    font-size: 1.1rem;
+    color: #34d399;
+    font-weight: 900;
+    transition: transform 0.4s ease;
+}
+
+.drawer-meta-list {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.drawer-meta-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+}
+
+.dmi-k {
+    color: var(--text-muted);
+}
+
+.dmi-v {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.drawer-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.btn-drawer-action {
+    flex: 1;
+    background: rgba(56, 189, 248, 0.12);
+    color: var(--accent-sky);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.btn-drawer-action:hover {
+    background: rgba(56, 189, 248, 0.24);
+    border-color: var(--accent-sky);
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+}
+
+/* =========================================================
+   風向風速 Marker & 氣溫數值標籤樣式
+   ========================================================= */
+.wind-marker-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 3px 8px;
+    border-radius: 9999px;
+    font-family: 'JetBrains Mono', 'Inter', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #ffffff;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+}
+
+.wind-marker-badge:hover {
+    transform: scale(1.18);
+    z-index: 9999;
+}
+
+.wind-arrow-icon {
+    display: inline-block;
+    font-size: 0.82rem;
+    font-weight: 900;
+    transition: transform 0.3s ease;
+}
+
+/* 氣溫數值標籤 (28°) */
+.temp-numeric-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 6px;
+    border-radius: 9999px;
+    font-family: 'JetBrains Mono', 'Inter', sans-serif;
+    font-size: 0.74rem;
+    font-weight: 800;
+    color: #ffffff;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: transform 0.2s;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.temp-numeric-badge:hover {
+    transform: scale(1.2);
+    z-index: 9999;
+}
+
+/* 簡明 Popup 樣式 */
+.brief-popup {
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.45;
+    min-width: 130px;
+    text-align: center;
+}
+
+.brief-popup b {
+    font-size: 14px;
+    color: #f8fafc;
+}
+
+.brief-popup-loc {
+    color: #94a3b8;
+    font-size: 11px;
+    margin-bottom: 2px;
+}
+
+.brief-popup-val {
+    font-size: 15px;
+    font-weight: 800;
+    margin-top: 3px;
+    display: inline-block;
+}
+
+/* 手機版抽屜自適應 */
+@media (max-width: 768px) {
+    .station-drawer {
+        width: 94vw;
+        right: 3vw;
+        top: auto;
+        bottom: 14px;
+        max-height: 72vh;
+        border-radius: 16px;
+    }
 }

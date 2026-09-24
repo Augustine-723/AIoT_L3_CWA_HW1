@@ -7,7 +7,11 @@
 let allStations = [];
 let filteredStations = [];
 let currentStation = null;
-let currentLayer = "temp"; // 'temp', 'rain', 'station'
+let currentLayer = "temp"; // 'temp', 'rain', 'wind', 'humidity', 'wx', 'station'
+let currentBaseMap = 'dark'; // 'dark' | 'street'
+let baseTileLayer = null;
+let countyGeoLayer = null;
+let showTempLabels = false; // 氣溫數字標籤開關 (28°)
 let map = null;
 let markerLayerGroup = null;
 let markerClusterGroup = null;
@@ -46,6 +50,86 @@ function getRainColor(rainStr) {
         return "#ec4899"; // 大雨粉紫
     } catch {
         return "#38bdf8";
+    }
+}
+
+// 風速色彩對應函式 (m/s)
+function getWindColor(speed) {
+    if (speed === null || speed === undefined || isNaN(speed)) return "#64748b";
+    if (speed < 1.5) return "#94a3b8"; // 微風 (灰)
+    if (speed < 3.4) return "#38bdf8"; // 輕風 (青)
+    if (speed < 5.5) return "#34d399"; // 微風 (綠)
+    if (speed < 8.0) return "#fbbf24"; // 和風 (黃)
+    if (speed < 10.8) return "#f97316"; // 清風 (橙)
+    if (speed < 13.9) return "#ef4444"; // 強風 (紅)
+    return "#ec4899"; // 烈風 (粉紫)
+}
+
+// 相對濕度色彩對應函式 (%)
+function getHumidityColor(humStr) {
+    try {
+        const val = parseFloat(String(humStr).replace('%', '').trim());
+        if (isNaN(val)) return "#06b6d4";
+        if (val < 40) return "#f59e0b"; // 乾
+        if (val < 60) return "#10b981"; // 舒
+        if (val < 75) return "#06b6d4"; // 潤
+        if (val < 85) return "#3b82f6"; // 潮
+        return "#8b5cf6"; // 極潮
+    } catch {
+        return "#06b6d4";
+    }
+}
+
+// 天氣現象色彩對應函式
+function getWxColor(wxStr) {
+    if (!wxStr) return "#94a3b8";
+    if (wxStr.includes("雨")) return "#06b6d4";
+    if (wxStr.includes("雷")) return "#a855f7";
+    if (wxStr.includes("陰")) return "#64748b";
+    if (wxStr.includes("多雲")) return "#38bdf8";
+    if (wxStr.includes("晴")) return "#fbbf24";
+    return "#38bdf8";
+}
+
+// 風向度數轉換文字方向
+function getWindDirectionName(deg) {
+    if (deg === null || deg === undefined || isNaN(deg)) return "--";
+    const dirs = ["北風", "東北風", "東風", "東南風", "南風", "西南風", "西風", "西北風"];
+    const idx = Math.round(deg / 45) % 8;
+    return dirs[idx];
+}
+
+// 更新動態圖例 Bar
+function updateLegend() {
+    const titleEl = document.getElementById('legend-title');
+    const stripEl = document.getElementById('legend-gradient-strip');
+    const labelsEl = document.getElementById('legend-scale-labels');
+    if (!titleEl || !stripEl || !labelsEl) return;
+
+    if (currentLayer === "temp") {
+        titleEl.innerText = "°C 氣溫色階";
+        stripEl.style.background = "linear-gradient(to right, #2c7bb6, #abd9e9, #7fcdbb, #d9ef8b, #fee08b, #fdae61, #f46d43, #d73027)";
+        labelsEl.innerHTML = "<span>&lt;16°</span><span>20°</span><span>24°</span><span>28°</span><span>32°</span><span>36°+</span>";
+    } else if (currentLayer === "rain") {
+        titleEl.innerText = "mm 降雨量強度";
+        stripEl.style.background = "linear-gradient(to right, #38bdf8, #06b6d4, #3b82f6, #8b5cf6, #ec4899)";
+        labelsEl.innerHTML = "<span>0mm</span><span>&lt;5mm</span><span>&lt;15mm</span><span>&lt;35mm</span><span>35mm+</span>";
+    } else if (currentLayer === "wind") {
+        titleEl.innerText = "m/s 風速級距與風向";
+        stripEl.style.background = "linear-gradient(to right, #94a3b8, #38bdf8, #34d399, #fbbf24, #f97316, #ef4444, #ec4899)";
+        labelsEl.innerHTML = "<span>&lt;1.5</span><span>3.3</span><span>5.4</span><span>7.9</span><span>10.7</span><span>13.8+</span>";
+    } else if (currentLayer === "humidity") {
+        titleEl.innerText = "% 相對濕度";
+        stripEl.style.background = "linear-gradient(to right, #f59e0b, #10b981, #06b6d4, #3b82f6, #8b5cf6)";
+        labelsEl.innerHTML = "<span>&lt;40%</span><span>50%</span><span>65%</span><span>75%</span><span>85%+</span>";
+    } else if (currentLayer === "wx") {
+        titleEl.innerText = "⛅ 即時天氣狀態";
+        stripEl.style.background = "linear-gradient(to right, #fbbf24, #38bdf8, #94a3b8, #06b6d4, #a855f7)";
+        labelsEl.innerHTML = "<span>☀️晴</span><span>⛅多雲</span><span>☁️陰</span><span>🌧️雨</span><span>⛈️雷</span>";
+    } else {
+        titleEl.innerText = "📍 氣象觀測站點";
+        stripEl.style.background = "linear-gradient(to right, #38bdf8, #818cf8, #c084fc)";
+        labelsEl.innerHTML = "<span>自動測站</span><span>有人測站</span><span>無人觀測站</span>";
     }
 }
 
@@ -112,16 +196,16 @@ function initMap() {
         
         L.control.zoom({ position: 'topright' }).addTo(map);
 
-        // 1. 底圖底層：Esri Dark Gray，opacity 為 0.8
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+        // 1. 初始化底圖 (支援深色 / 街道底圖無縫切換，不重建 map)
+        baseTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 16,
-            opacity: 0.8
+            opacity: 0.82
         }).addTo(map);
 
-        // 2. 臺灣縣市行政區邊界
+        // 2. 臺灣縣市行政區邊界 (支援 hover highlight 與 click 篩選聯動)
         if (typeof TW_COUNTIES_GEOJSON !== 'undefined') {
             try {
-                L.geoJSON(TW_COUNTIES_GEOJSON, {
+                countyGeoLayer = L.geoJSON(TW_COUNTIES_GEOJSON, {
                     style: {
                         color: 'rgba(148, 163, 184, 0.45)',
                         weight: 1.2,
@@ -129,6 +213,43 @@ function initMap() {
                         fillColor: '#1f2937',
                         fillOpacity: 0.72,
                         dashArray: '3, 4'
+                    },
+                    onEachFeature: function(feature, layer) {
+                        const rawName = feature.properties?.COUNTYNAME;
+                        layer.on({
+                            mouseover: function(e) {
+                                const target = e.target;
+                                target.setStyle({
+                                    color: '#38bdf8',
+                                    weight: 2.2,
+                                    fillColor: '#0284c7',
+                                    fillOpacity: 0.4,
+                                    dashArray: ''
+                                });
+                                target.bringToFront();
+                            },
+                            mouseout: function(e) {
+                                if (countyGeoLayer) {
+                                    countyGeoLayer.resetStyle(e.target);
+                                }
+                            },
+                            click: function(e) {
+                                L.DomEvent.stopPropagation(e);
+                                if (rawName) {
+                                    const countySelect = document.getElementById('select-county');
+                                    if (countySelect) {
+                                        for (let opt of countySelect.options) {
+                                            if (opt.value === rawName || 
+                                                opt.value.replace(/台/g, '臺') === rawName.replace(/台/g, '臺')) {
+                                                countySelect.value = opt.value;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    handleCountyChange();
+                                }
+                            }
+                        });
                     }
                 }).addTo(map);
             } catch (geoErr) {
@@ -191,7 +312,7 @@ function initMap() {
     }
 }
 
-// 繪製地圖測站標記 (支援 MarkerCluster、氣溫/雨量/測站三模式)
+// 繪製地圖測站標記 (支援 6 大圖層、風速箭頭、氣溫數值標籤與簡要 Popup)
 function renderMapMarkers() {
     if (!map || !markerClusterGroup || typeof L === 'undefined') return;
     try {
@@ -206,13 +327,68 @@ function renderMapMarkers() {
             const stationTemp = (st.temp !== undefined && st.temp !== null) ? st.temp : ((st.cur_temp !== undefined && st.cur_temp !== null) ? st.cur_temp : "--");
 
             if (currentLayer === "station") {
-                marker = L.marker([st.lat, st.lon]);
+                // 1. 測站點位圖層
+                const radius = isSelected ? 10 : 7;
+                marker = L.circleMarker([st.lat, st.lon], {
+                    radius: radius,
+                    fillColor: "#38bdf8",
+                    fillOpacity: 0.92,
+                    color: isSelected ? "#ffffff" : "rgba(255, 255, 255, 0.85)",
+                    weight: isSelected ? 3 : 2,
+                    className: 'weather-circle-marker'
+                });
+            } else if (currentLayer === "wind") {
+                // 2. 💨 風速風向圖層 (顯示風速與旋轉風向箭頭，缺值顯示 --)
+                const speedVal = (st.wind_speed !== null && st.wind_speed !== undefined && !isNaN(st.wind_speed))
+                    ? Number(st.wind_speed).toFixed(1)
+                    : "--";
+                const dirVal = (st.wind_dir !== null && st.wind_dir !== undefined && !isNaN(st.wind_dir))
+                    ? Number(st.wind_dir)
+                    : null;
+                const windColor = getWindColor(st.wind_speed);
+
+                const arrowHtml = dirVal !== null 
+                    ? `<span class="wind-arrow-icon" style="transform: rotate(${dirVal}deg);">↑</span>`
+                    : '';
+
+                const windIcon = L.divIcon({
+                    className: 'wind-div-icon',
+                    html: `
+                    <div class="wind-marker-badge" style="background-color: ${windColor}; ${isSelected ? 'outline: 2px solid #ffffff; box-shadow: 0 0 14px #38bdf8;' : ''}">
+                        ${arrowHtml}<span>${speedVal}</span>
+                    </div>`,
+                    iconSize: [44, 22],
+                    iconAnchor: [22, 11]
+                });
+
+                marker = L.marker([st.lat, st.lon], { icon: windIcon });
+            } else if (currentLayer === "temp" && showTempLabels) {
+                // 3. 氣溫數值標籤 Toggle 開啟模式 (28°)
+                const markerColor = getWindyColor(Number(stationTemp) || 25);
+                const tempVal = (!isNaN(Number(stationTemp))) ? Math.round(Number(stationTemp)) : stationTemp;
+
+                const tempIcon = L.divIcon({
+                    className: 'temp-label-icon',
+                    html: `
+                    <div class="temp-numeric-badge" style="background-color: ${markerColor}; ${isSelected ? 'outline: 2px solid #ffffff; box-shadow: 0 0 14px #ffffff;' : ''}">
+                        <span>${tempVal}°</span>
+                    </div>`,
+                    iconSize: [38, 22],
+                    iconAnchor: [19, 11]
+                });
+
+                marker = L.marker([st.lat, st.lon], { icon: tempIcon });
             } else {
-                let markerColor = "#fb923c"; // 預設暖橘
+                // 4. 氣溫 / 雨量 / 濕度 / 天氣 CircleMarker 模式
+                let markerColor = "#fb923c";
                 if (currentLayer === "temp") {
                     markerColor = getWindyColor(Number(stationTemp) || 25);
                 } else if (currentLayer === "rain") {
                     markerColor = getRainColor(st.rain);
+                } else if (currentLayer === "humidity") {
+                    markerColor = getHumidityColor(st.humidity);
+                } else if (currentLayer === "wx") {
+                    markerColor = getWxColor(st.wx);
                 }
 
                 const radius = isSelected ? 10 : 7;
@@ -225,13 +401,6 @@ function renderMapMarkers() {
                     className: 'weather-circle-marker'
                 });
 
-                // 浮動 Tooltip (提示站名與氣溫)
-                marker.bindTooltip(`<b>${st.county || ''} ${st.name}</b>: ${stationTemp}°C (${st.wx || '晴'})`, {
-                    direction: 'top',
-                    offset: [0, -6]
-                });
-
-                // Hover 動態 (200-300ms transition)
                 marker.on('mouseover', function() {
                     this.setRadius(12);
                     this.setStyle({ weight: 3, color: '#ffffff', fillOpacity: 1 });
@@ -248,44 +417,34 @@ function renderMapMarkers() {
                 });
             }
 
-            // 綁定 Popup
+            // 浮動 Tooltip
+            marker.bindTooltip(`<b>${st.county || ''} ${st.name}</b>: ${stationTemp}°C (${st.wx || '晴'})`, {
+                direction: 'top',
+                offset: [0, -6]
+            });
+
+            // 簡要 Popup (Popup 只顯示簡要摘要，詳細放入 Station Drawer)
             const popupHtml = `
-            <div style="font-family: inherit; font-size: 13px; line-height: 1.5; min-width: 170px;">
-                <div style="font-size: 14px; margin-bottom: 4px;">
-                    <b>${st.name}</b><br>
-                    <span style="color:#94a3b8; font-size:12px;">${st.county || ''} ${st.town || ''}</span><br>
-                    <span style="color:#fb923c; font-weight:700;">溫度：${stationTemp} °C</span>
-                </div>
-                <div style="border-top: 1px solid rgba(255,255,255,0.12); margin-top: 6px; padding-top: 6px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom: 2px;">
-                        <span style="color:#94a3b8;">今日溫幅:</span>
-                        <span style="color:#f8fafc; font-weight:600;">${st.min_temp !== undefined ? st.min_temp : '--'}°C ~ ${st.max_temp !== undefined ? st.max_temp : '--'}°C</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom: 2px;">
-                        <span style="color:#94a3b8;">空氣濕度:</span>
-                        <span style="color:#a78bfa; font-weight:600;">${st.humidity || '--'}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom: 2px;">
-                        <span style="color:#94a3b8;">即時降雨:</span>
-                        <span style="color:#06b6d4; font-weight:600;">${st.rain || '0.0 mm'}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; margin-top: 3px;">
-                        <span style="color:#94a3b8;">天氣狀況:</span>
-                        <span style="color:#38bdf8;">${st.wx || '晴'}</span>
-                    </div>
-                </div>
+            <div class="brief-popup">
+                <b>${st.name}</b><br>
+                <div class="brief-popup-loc">${st.county || ''} ${st.town || ''}</div>
+                <div class="brief-popup-val" style="color: #fb923c;">${stationTemp}°C · ${st.wx || '晴'}</div>
             </div>
             `;
 
-            marker.bindPopup(popupHtml, { maxWidth: 250 });
+            marker.bindPopup(popupHtml, { maxWidth: 180, closeButton: false });
 
+            // 點擊事件：開啟簡要 Popup，並打開右側詳細 Station Drawer
             marker.on('click', () => {
                 selectStation(st, false);
+                openStationDrawer(st);
             });
 
             stationMarkerMap[st.id] = marker;
             markerClusterGroup.addLayer(marker);
         });
+
+        updateLegend();
     } catch (err) {
         console.error("renderMapMarkers error:", err);
     }
@@ -413,9 +572,178 @@ function selectStation(st, shouldFlyTo = true) {
         console.warn("updateChart in selectStation failed:", e);
     }
 
-    // 6. 同步 Modal 控制狀態
+    // 6. 開啟右側詳細 Station Drawer
+    try {
+        openStationDrawer(st);
+    } catch (e) {
+        console.warn("openStationDrawer error:", e);
+    }
+
+    // 7. 同步 Modal 控制狀態
     if (isMapModalOpen) {
         syncModalControls();
+    }
+}
+
+// 開啟右側詳細 Station Drawer
+function openStationDrawer(st) {
+    if (!st) return;
+    const drawer = document.getElementById('station-drawer');
+    if (!drawer) return;
+
+    const stationTemp = (st.temp !== undefined && st.temp !== null) ? st.temp : ((st.cur_temp !== undefined && st.cur_temp !== null) ? st.cur_temp : "--");
+    const minTemp = (st.min_temp !== undefined && st.min_temp !== null) ? st.min_temp : "--";
+    const maxTemp = (st.max_temp !== undefined && st.max_temp !== null) ? st.max_temp : "--";
+
+    const nameEl = document.getElementById('drawer-station-name');
+    if (nameEl) nameEl.innerText = st.name || '--';
+    const tagEl = document.getElementById('drawer-tag-county');
+    if (tagEl) tagEl.innerText = st.county || '臺灣';
+    const idEl = document.getElementById('drawer-station-id');
+    if (idEl) idEl.innerText = `#${st.id || '--'}`;
+
+    const tempEl = document.getElementById('drawer-temp');
+    if (tempEl) tempEl.innerText = `${stationTemp}°C`;
+    const rangeEl = document.getElementById('drawer-range');
+    if (rangeEl) rangeEl.innerText = `極值: ${minTemp}°C ~ ${maxTemp}°C`;
+
+    const rainEl = document.getElementById('drawer-rain');
+    if (rainEl) rainEl.innerText = st.rain || '0.0 mm';
+
+    const humEl = document.getElementById('drawer-hum');
+    if (humEl) humEl.innerText = st.humidity || '--';
+
+    const pressEl = document.getElementById('drawer-pressure');
+    if (pressEl) pressEl.innerText = st.pressure || '--';
+
+    const wxEl = document.getElementById('drawer-wx');
+    if (wxEl) wxEl.innerText = st.wx || '晴';
+
+    const timeEl = document.getElementById('drawer-time');
+    if (timeEl) timeEl.innerText = `觀測時間: ${st.time || '--'}`;
+
+    const townEl = document.getElementById('drawer-full-town');
+    if (townEl) townEl.innerText = `${st.county || ''} ${st.town || '市區'}`;
+
+    const coordsEl = document.getElementById('drawer-coords');
+    if (coordsEl) coordsEl.innerText = (st.lat && st.lon) ? `${Number(st.lat).toFixed(4)}, ${Number(st.lon).toFixed(4)}` : '--';
+
+    // 風速與風向 (若缺值顯示 --，不可出現 undefined/NaN)
+    const windEl = document.getElementById('drawer-wind');
+    const arrowEl = document.getElementById('drawer-wind-arrow');
+    const windDirEl = document.getElementById('drawer-wind-dir');
+
+    if (st.wind_speed !== null && st.wind_speed !== undefined && !isNaN(st.wind_speed)) {
+        if (windEl) windEl.innerText = `${Number(st.wind_speed).toFixed(1)} m/s`;
+    } else {
+        if (windEl) windEl.innerText = '--';
+    }
+
+    if (st.wind_dir !== null && st.wind_dir !== undefined && !isNaN(st.wind_dir)) {
+        const dir = Number(st.wind_dir);
+        if (arrowEl) {
+            arrowEl.style.display = 'inline-block';
+            arrowEl.style.transform = `rotate(${dir}deg)`;
+        }
+        if (windDirEl) windDirEl.innerText = `風向角度: ${dir}° (${getWindDirectionName(dir)})`;
+    } else {
+        if (arrowEl) arrowEl.style.display = 'none';
+        if (windDirEl) windDirEl.innerText = '風向角度: --';
+    }
+
+    drawer.classList.add('active');
+    drawer.setAttribute('aria-hidden', 'false');
+}
+
+// 關閉 Station Drawer
+function closeStationDrawer() {
+    const drawer = document.getElementById('station-drawer');
+    if (drawer) {
+        drawer.classList.remove('active');
+        drawer.setAttribute('aria-hidden', 'true');
+    }
+}
+
+// 切換底圖 (深色 / 街道底圖無縫切換，不重建地圖)
+function switchBaseMap() {
+    if (!map) return;
+    const nextType = currentBaseMap === 'dark' ? 'street' : 'dark';
+    currentBaseMap = nextType;
+    
+    if (baseTileLayer) {
+        map.removeLayer(baseTileLayer);
+    }
+
+    if (currentBaseMap === 'street') {
+        baseTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            opacity: 0.9,
+            subdomains: ['a', 'b', 'c']
+        }).addTo(map);
+    } else {
+        baseTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 16,
+            opacity: 0.82
+        }).addTo(map);
+    }
+    baseTileLayer.bringToBack();
+
+    const labelEl = document.getElementById('basemap-icon-text');
+    if (labelEl) {
+        labelEl.innerText = currentBaseMap === 'dark' ? '🌙 深色底圖' : '🛣️ 街道底圖';
+    }
+}
+
+// 氣溫數值標籤 Toggle 開關
+function toggleTempLabels() {
+    showTempLabels = !showTempLabels;
+    const btn = document.getElementById('btn-toggle-temp-labels');
+    if (btn) {
+        if (showTempLabels) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    }
+    renderMapMarkers();
+}
+
+// 定位所在位置
+function locateUserPosition() {
+    if (!map) return;
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                map.flyTo([lat, lon], 13, { duration: 1.2 });
+                let closest = null;
+                let minDist = Infinity;
+                allStations.forEach(st => {
+                    if (st.lat && st.lon) {
+                        const d = Math.hypot(st.lat - lat, st.lon - lon);
+                        if (d < minDist) {
+                            minDist = d;
+                            closest = st;
+                        }
+                    }
+                });
+                if (closest) {
+                    selectStation(closest, false);
+                }
+            },
+            (err) => {
+                console.warn("Geolocation failed, focusing on current station or Taiwan:", err);
+                if (currentStation && currentStation.lat && currentStation.lon) {
+                    map.flyTo([currentStation.lat, currentStation.lon], 13, { duration: 1.0 });
+                } else {
+                    resetToTaiwanView();
+                }
+            },
+            { timeout: 6000 }
+        );
+    } else if (currentStation && currentStation.lat && currentStation.lon) {
+        map.flyTo([currentStation.lat, currentStation.lon], 13, { duration: 1.0 });
     }
 }
 
@@ -1045,7 +1373,9 @@ async function loadWeatherData() {
         allStations = (data.stations || []).map(st => ({
             ...st,
             temp: (st.temp !== undefined && st.temp !== null) ? st.temp : st.cur_temp,
-            cur_temp: (st.cur_temp !== undefined && st.cur_temp !== null) ? st.cur_temp : st.temp
+            cur_temp: (st.cur_temp !== undefined && st.cur_temp !== null) ? st.cur_temp : st.temp,
+            wind_speed: (st.wind_speed !== undefined && st.wind_speed !== null && !isNaN(st.wind_speed)) ? Number(st.wind_speed) : null,
+            wind_dir: (st.wind_dir !== undefined && st.wind_dir !== null && !isNaN(st.wind_dir)) ? Number(st.wind_dir) : null,
         }));
         filteredStations = [...allStations];
 
@@ -1106,20 +1436,57 @@ function bindEvents() {
         });
     }
 
-    // 圖層切換按鈕
-    document.querySelectorAll('.layer-btn').forEach(btn => {
+    // 切換圖層共用函式 (支援 6 大圖層)
+    function setLayer(layer) {
+        if (!layer) return;
+        currentLayer = layer;
+        document.querySelectorAll('.layer-btn, .compact-layer-btn, .modal-layer-btn').forEach(b => {
+            if (b.dataset.layer === currentLayer) {
+                b.classList.add('active');
+            } else {
+                b.classList.remove('active');
+            }
+        });
+        renderMapMarkers();
+    }
+
+    // 監聽所有圖層按鈕 (包含 compact-layer-panel、side panel、modal)
+    document.querySelectorAll('.layer-btn, .compact-layer-btn, .modal-layer-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            currentLayer = e.currentTarget.dataset.layer;
-            document.querySelectorAll('.layer-btn').forEach(b => {
-                if (b.dataset.layer === currentLayer) {
-                    b.classList.add('active');
-                } else {
-                    b.classList.remove('active');
-                }
-            });
-            renderMapMarkers();
+            setLayer(e.currentTarget.dataset.layer);
         });
     });
+
+    // 底圖切換按鈕
+    const btnBasemap = document.getElementById('btn-toggle-basemap');
+    if (btnBasemap) btnBasemap.addEventListener('click', switchBaseMap);
+
+    // 氣溫數值標籤 Toggle
+    const btnTempLabels = document.getElementById('btn-toggle-temp-labels');
+    if (btnTempLabels) btnTempLabels.addEventListener('click', toggleTempLabels);
+
+    // 定位按鈕
+    const btnLocate = document.getElementById('btn-locate-user');
+    if (btnLocate) btnLocate.addEventListener('click', locateUserPosition);
+
+    // 關閉 Station Drawer
+    const btnCloseDrawer = document.getElementById('btn-close-drawer');
+    if (btnCloseDrawer) btnCloseDrawer.addEventListener('click', closeStationDrawer);
+
+    // Drawer 內部動作按鈕
+    const drawerFlyBtn = document.getElementById('drawer-btn-fly');
+    if (drawerFlyBtn) {
+        drawerFlyBtn.addEventListener('click', () => {
+            if (currentStation && currentStation.lat && currentStation.lon && map) {
+                map.flyTo([currentStation.lat, currentStation.lon], 13, { duration: 1.0 });
+            }
+        });
+    }
+
+    const drawerExpandBtn = document.getElementById('drawer-btn-expand');
+    if (drawerExpandBtn) {
+        drawerExpandBtn.addEventListener('click', openMapModal);
+    }
 
     // 回到全臺按鈕 (主面板與 Modal 均支援 Requirement 4)
     const btnResetMap = document.getElementById('btn-reset-map');
@@ -1233,10 +1600,13 @@ function bindEvents() {
         });
     }
 
-    // 需求 9: ESC 鍵關閉放大地圖
+    // ESC 鍵關閉抽屜與放大地圖
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && isMapModalOpen) {
-            closeMapModal();
+        if (e.key === 'Escape') {
+            closeStationDrawer();
+            if (isMapModalOpen) {
+                closeMapModal();
+            }
         }
     });
 
