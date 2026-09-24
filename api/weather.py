@@ -137,77 +137,15 @@ def fetch_live_cwa_oa0003(api_key: str):
 class handler(BaseHTTPRequestHandler):
     def do_HEAD(self):
         self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
 
     def do_GET(self):
-        parsed = urlparse(self.path)
-        clean_path = parsed.path.rstrip("/")
-        if not clean_path:
-            clean_path = "/"
-
-        api_dir = os.path.dirname(os.path.abspath(__file__))
-        base_dir = os.path.dirname(api_dir)
-
-        # 1. 根目錄或 index.html 請求：回傳 HTML 前端頁面
-        if clean_path in ["/", "/index.html", "/index"]:
-            for candidate in [
-                os.path.join(api_dir, "index.html"),
-                os.path.join(base_dir, "index.html"),
-                os.path.join(base_dir, "public", "index.html")
-            ]:
-                if os.path.exists(candidate) and os.path.isfile(candidate):
-                    with open(candidate, "rb") as f:
-                        data = f.read()
-                    self.send_response(200)
-                    self.send_header("Content-Type", "text/html; charset=utf-8")
-                    self.send_header("Content-Length", str(len(data)))
-                    self.send_header("X-App-Version", "v4-static-routed")
-                    self.end_headers()
-                    self.wfile.write(data)
-                    return
-
-        # 2. 靜態前端資源 (CSS, JS, JSON, 圖檔)
-        static_ext_map = {
-            ".css": "text/css; charset=utf-8",
-            ".js": "application/javascript; charset=utf-8",
-            ".json": "application/json; charset=utf-8",
-            ".png": "image/png",
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".svg": "image/svg+xml",
-            ".ico": "image/x-icon",
-        }
-        filename = os.path.basename(clean_path)
-        _, ext = os.path.splitext(filename)
-        if ext in static_ext_map and not clean_path.startswith("/api"):
-            for candidate in [
-                os.path.join(api_dir, filename),
-                os.path.join(base_dir, filename),
-                os.path.join(base_dir, "public", filename),
-                os.path.join(api_dir, clean_path.lstrip("/")),
-                os.path.join(base_dir, clean_path.lstrip("/")),
-                os.path.join(base_dir, "public", clean_path.lstrip("/"))
-            ]:
-                if os.path.exists(candidate) and os.path.isfile(candidate):
-                    with open(candidate, "rb") as f:
-                        data = f.read()
-                    self.send_response(200)
-                    self.send_header("Content-Type", static_ext_map[ext])
-                    self.send_header("Content-Length", str(len(data)))
-                    self.send_header("Cache-Control", "public, max-age=3600")
-                    self.send_header("X-App-Version", "v4-static-routed")
-                    self.end_headers()
-                    self.wfile.write(data)
-                    return
-
-        # 3. 氣象 API 請求 (如 /api/weather 或未匹配路由)：回傳 JSON
         self.send_response(200)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
         self.send_header("Cache-Control", "public, max-age=60, s-maxage=120")
-        self.send_header("X-App-Version", "v4-static-routed")
         self.end_headers()
 
         api_key = os.getenv("CWA_API_KEY", "")

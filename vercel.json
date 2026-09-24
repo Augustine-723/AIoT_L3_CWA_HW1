@@ -1,11 +1,6 @@
 {
-  "cleanUrls": true,
-  "rewrites": [
-    {
-      "source": "/api/weather",
-      "destination": "/api/weather.py"
-    }
-  ]
+  "cleanUrls": true
 }
+
 
 
