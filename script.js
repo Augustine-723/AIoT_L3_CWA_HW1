@@ -99,7 +99,7 @@ function initMap() {
     markerLayerGroup = L.layerGroup().addTo(map);
 }
 
-// 繪製地圖測站圓點標記 (加白色半透明外框 + CSS Glow + Hover 放大 + 點擊顯示氣象)
+// 繪製地圖測站標記 (支援 L.marker 與動態溫標圓點，彈窗包含站名、縣市鄉鎮、溫度)
 function renderMapMarkers() {
     if (!markerLayerGroup) return;
     markerLayerGroup.clearLayers();
@@ -107,87 +107,95 @@ function renderMapMarkers() {
     filteredStations.forEach(st => {
         if (!st.lat || !st.lon) return;
 
-        let markerColor = "#fb923c"; // 預設經典暖橘黃
-        if (currentLayer === "temp") {
-            markerColor = getWindyColor(st.max_temp);
-        } else if (currentLayer === "rain") {
-            markerColor = getRainColor(st.rain);
+        let marker;
+        const isSelected = currentStation && currentStation.id === st.id;
+        const stationTemp = st.temp !== undefined ? st.temp : st.cur_temp;
+
+        if (currentLayer === "station") {
+            // 標準 Leaflet Pin Marker
+            marker = L.marker([st.lat, st.lon]);
+        } else {
+            // 類 Windy 色階圓點標記
+            let markerColor = "#fb923c"; // 預設暖橘
+            if (currentLayer === "temp") {
+                markerColor = getWindyColor(st.max_temp);
+            } else if (currentLayer === "rain") {
+                markerColor = getRainColor(st.rain);
+            }
+
+            const radius = isSelected ? 10 : 7;
+            marker = L.circleMarker([st.lat, st.lon], {
+                radius: radius,
+                fillColor: markerColor,
+                fillOpacity: 0.92,
+                color: isSelected ? "#ffffff" : "rgba(255, 255, 255, 0.85)", // 白色半透明邊框
+                weight: isSelected ? 3 : 2,
+                className: 'weather-circle-marker'
+            });
+
+            // 浮動 Tooltip (提示站名與氣溫)
+            marker.bindTooltip(`<b>${st.county} ${st.name}</b>: ${stationTemp}°C (${st.wx})`, {
+                direction: 'top',
+                offset: [0, -6]
+            });
+
+            // Hover 時放大動態
+            marker.on('mouseover', function() {
+                this.setRadius(12);
+                this.setStyle({
+                    weight: 3,
+                    color: '#ffffff',
+                    fillOpacity: 1
+                });
+            });
+
+            marker.on('mouseout', function() {
+                const isSel = currentStation && currentStation.id === st.id;
+                this.setRadius(isSel ? 10 : 7);
+                this.setStyle({
+                    weight: isSel ? 3 : 2,
+                    color: isSel ? "#ffffff" : "rgba(255, 255, 255, 0.85)",
+                    fillOpacity: 0.92
+                });
+            });
         }
 
-        const isSelected = currentStation && currentStation.id === st.id;
-        const radius = isSelected ? 10 : 7;
-
-        const circle = L.circleMarker([st.lat, st.lon], {
-            radius: radius,
-            fillColor: markerColor,
-            fillOpacity: 0.92,
-            color: isSelected ? "#ffffff" : "rgba(255, 255, 255, 0.85)", // 白色半透明邊框
-            weight: isSelected ? 3 : 2,
-            className: 'weather-circle-marker'
-        });
-
-        // 浮動 Tooltip (提示站名與氣溫)
-        circle.bindTooltip(`<b>${st.county} ${st.name}</b>: ${st.cur_temp}°C (${st.wx})`, {
-            direction: 'top',
-            offset: [0, -6]
-        });
-
-        // Hover 時放大 (Mouse Hover Zoom & Glow)
-        circle.on('mouseover', function() {
-            this.setRadius(12);
-            this.setStyle({
-                weight: 3,
-                color: '#ffffff',
-                fillOpacity: 1
-            });
-        });
-
-        circle.on('mouseout', function() {
-            const isSel = currentStation && currentStation.id === st.id;
-            this.setRadius(isSel ? 10 : 7);
-            this.setStyle({
-                weight: isSel ? 3 : 2,
-                color: isSel ? "#ffffff" : "rgba(255, 255, 255, 0.85)",
-                fillOpacity: 0.92
-            });
-        });
-
-        // 點擊後跳出完整資訊 Popup (氣溫、濕度、降雨) 並同步卡片與圖表
-        const popupContent = `
+        // 綁定 Popup：符合規範的 <b>${name}</b><br>${county} ${town}<br>溫度：${temp} °C
+        const popupHtml = `
         <div style="font-family: inherit; font-size: 13px; line-height: 1.5; min-width: 170px;">
-            <div style="font-size: 14px; font-weight: 700; color: #38bdf8; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">
-                📍 ${st.county} - ${st.name}
+            <div style="font-size: 14px; margin-bottom: 4px;">
+                <b>${st.name}</b><br>
+                <span style="color:#94a3b8; font-size:12px;">${st.county} ${st.town || ''}</span><br>
+                <span style="color:#fb923c; font-weight:700;">溫度：${stationTemp} °C</span>
             </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom: 3px;">
-                <span style="color:#94a3b8;">當前氣溫:</span>
-                <span style="color:#fb923c; font-weight:700;">${st.cur_temp}°C</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom: 3px;">
-                <span style="color:#94a3b8;">今日溫幅:</span>
-                <span style="color:#f8fafc; font-weight:600;">${st.min_temp}°C ~ ${st.max_temp}°C</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom: 3px;">
-                <span style="color:#94a3b8;">空氣濕度:</span>
-                <span style="color:#a78bfa; font-weight:600;">${st.humidity}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom: 3px;">
-                <span style="color:#94a3b8;">即時降雨:</span>
-                <span style="color:#06b6d4; font-weight:600;">${st.rain}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 4px;">
-                <span style="color:#94a3b8;">天氣狀況:</span>
-                <span style="color:#38bdf8;">${st.wx}</span>
+            <div style="border-top: 1px solid rgba(255,255,255,0.12); margin-top: 6px; padding-top: 6px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom: 2px;">
+                    <span style="color:#94a3b8;">今日溫幅:</span>
+                    <span style="color:#f8fafc; font-weight:600;">${st.min_temp}°C ~ ${st.max_temp}°C</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom: 2px;">
+                    <span style="color:#94a3b8;">空氣濕度:</span>
+                    <span style="color:#a78bfa; font-weight:600;">${st.humidity}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom: 2px;">
+                    <span style="color:#94a3b8;">即時降雨:</span>
+                    <span style="color:#06b6d4; font-weight:600;">${st.rain}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top: 3px;">
+                    <span style="color:#94a3b8;">天氣狀況:</span>
+                    <span style="color:#38bdf8;">${st.wx}</span>
+                </div>
             </div>
         </div>
         `;
 
-        circle.bindPopup(popupContent, { maxWidth: 240 });
+        marker.bindPopup(popupHtml, { maxWidth: 240 });
 
-        circle.on('click', () => {
+        marker.on('click', () => {
             selectStation(st);
         });
 
-        markerLayerGroup.addLayer(circle);
+        markerLayerGroup.addLayer(marker);
     });
 }
 
@@ -426,7 +434,11 @@ async function loadWeatherData() {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
 
-        allStations = data.stations || [];
+        allStations = (data.stations || []).map(st => ({
+            ...st,
+            temp: st.temp !== undefined ? st.temp : st.cur_temp,
+            cur_temp: st.cur_temp !== undefined ? st.cur_temp : st.temp
+        }));
         filteredStations = [...allStations];
 
         // 填入縣市清單
@@ -446,12 +458,12 @@ async function loadWeatherData() {
         
         // 使用預設示範資料
         allStations = [
-            { id: "466920", name: "臺北", county: "臺北市", town: "中正區", lat: 25.0377, lon: 121.5149, cur_temp: 28.5, min_temp: 23.2, max_temp: 31.8, wx: "晴時多雲", rain: "0.0 mm", humidity: "65%", pressure: "1012.4 hPa", time: "2026-09-23 11:30:00" },
-            { id: "466880", name: "板橋", county: "新北市", town: "板橋區", lat: 25.0000, lon: 121.4420, cur_temp: 29.1, min_temp: 23.8, max_temp: 32.2, wx: "多雲", rain: "0.0 mm", humidity: "68%", pressure: "1012.1 hPa", time: "2026-09-23 11:30:00" },
-            { id: "466940", name: "基隆", county: "基隆市", town: "仁愛區", lat: 25.1333, lon: 121.7405, cur_temp: 28.2, min_temp: 23.7, max_temp: 28.4, wx: "多雲局部雨", rain: "1.5 mm", humidity: "75%", pressure: "1012.5 hPa", time: "2026-09-23 11:30:00" },
-            { id: "467490", name: "臺中", county: "臺中市", town: "北區", lat: 24.1457, lon: 120.6840, cur_temp: 30.4, min_temp: 24.5, max_temp: 33.1, wx: "晴天", rain: "0.0 mm", humidity: "60%", pressure: "1011.8 hPa", time: "2026-09-23 11:30:00" },
-            { id: "467440", name: "高雄", county: "高雄市", town: "前鎮區", lat: 22.5660, lon: 120.3157, cur_temp: 31.2, min_temp: 25.4, max_temp: 33.6, wx: "晴朗", rain: "0.0 mm", humidity: "72%", pressure: "1011.2 hPa", time: "2026-09-23 11:30:00" },
-            { id: "467410", name: "臺南", county: "臺南市", town: "中西區", lat: 22.9933, lon: 120.2048, cur_temp: 30.8, min_temp: 24.8, max_temp: 32.8, wx: "晴時多雲", rain: "0.0 mm", humidity: "70%", pressure: "1011.5 hPa", time: "2026-09-23 11:30:00" },
+            { id: "466920", name: "臺北", county: "臺北市", town: "中正區", lat: 25.0377, lon: 121.5149, temp: 28.5, cur_temp: 28.5, min_temp: 23.2, max_temp: 31.8, wx: "晴時多雲", rain: "0.0 mm", humidity: "65%", pressure: "1012.4 hPa", time: "2026-09-23 11:30:00" },
+            { id: "466880", name: "板橋", county: "新北市", town: "板橋區", lat: 25.0000, lon: 121.4420, temp: 29.1, cur_temp: 29.1, min_temp: 23.8, max_temp: 32.2, wx: "多雲", rain: "0.0 mm", humidity: "68%", pressure: "1012.1 hPa", time: "2026-09-23 11:30:00" },
+            { id: "466940", name: "基隆", county: "基隆市", town: "仁愛區", lat: 25.1333, lon: 121.7405, temp: 28.2, cur_temp: 28.2, min_temp: 23.7, max_temp: 28.4, wx: "多雲局部雨", rain: "1.5 mm", humidity: "75%", pressure: "1012.5 hPa", time: "2026-09-23 11:30:00" },
+            { id: "467490", name: "臺中", county: "臺中市", town: "北區", lat: 24.1457, lon: 120.6840, temp: 30.4, cur_temp: 30.4, min_temp: 24.5, max_temp: 33.1, wx: "晴天", rain: "0.0 mm", humidity: "60%", pressure: "1011.8 hPa", time: "2026-09-23 11:30:00" },
+            { id: "467440", name: "高雄", county: "高雄市", town: "前鎮區", lat: 22.5660, lon: 120.3157, temp: 31.2, cur_temp: 31.2, min_temp: 25.4, max_temp: 33.6, wx: "晴朗", rain: "0.0 mm", humidity: "72%", pressure: "1011.2 hPa", time: "2026-09-23 11:30:00" },
+            { id: "467410", name: "臺南", county: "臺南市", town: "中西區", lat: 22.9933, lon: 120.2048, temp: 30.8, cur_temp: 30.8, min_temp: 24.8, max_temp: 32.8, wx: "晴時多雲", rain: "0.0 mm", humidity: "70%", pressure: "1011.5 hPa", time: "2026-09-23 11:30:00" },
         ];
         filteredStations = [...allStations];
         handleCountyChange();

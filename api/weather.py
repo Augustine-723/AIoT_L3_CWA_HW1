@@ -39,16 +39,16 @@ COUNTY_COORDINATES = {
 def get_sample_stations():
     """離線或未配置金鑰時的示範資料"""
     return [
-        {"id": "466920", "name": "臺北", "county": "臺北市", "town": "中正區", "lat": 25.0377, "lon": 121.5149, "cur_temp": 28.5, "min_temp": 23.2, "max_temp": 31.8, "wx": "晴時多雲", "rain": "0.0 mm", "humidity": "65%", "pressure": "1012.4 hPa", "time": "2026-09-23 11:30:00"},
-        {"id": "466880", "name": "板橋", "county": "新北市", "town": "板橋區", "lat": 25.0000, "lon": 121.4420, "cur_temp": 29.1, "min_temp": 23.8, "max_temp": 32.2, "wx": "多雲", "rain": "0.0 mm", "humidity": "68%", "pressure": "1012.1 hPa", "time": "2026-09-23 11:30:00"},
-        {"id": "466940", "name": "基隆", "county": "基隆市", "town": "仁愛區", "lat": 25.1333, "lon": 121.7405, "cur_temp": 28.2, "min_temp": 23.7, "max_temp": 28.4, "wx": "多雲局部雨", "rain": "1.5 mm", "humidity": "75%", "pressure": "1012.5 hPa", "time": "2026-09-23 11:30:00"},
-        {"id": "467490", "name": "臺中", "county": "臺中市", "town": "北區", "lat": 24.1457, "lon": 120.6840, "cur_temp": 30.4, "min_temp": 24.5, "max_temp": 33.1, "wx": "晴天", "rain": "0.0 mm", "humidity": "60%", "pressure": "1011.8 hPa", "time": "2026-09-23 11:30:00"},
-        {"id": "467440", "name": "高雄", "county": "高雄市", "town": "前鎮區", "lat": 22.5660, "lon": 120.3157, "cur_temp": 31.2, "min_temp": 25.4, "max_temp": 33.6, "wx": "晴朗悶熱", "rain": "0.0 mm", "humidity": "72%", "pressure": "1011.2 hPa", "time": "2026-09-23 11:30:00"},
-        {"id": "467410", "name": "臺南", "county": "臺南市", "town": "中西區", "lat": 22.9933, "lon": 120.2048, "cur_temp": 30.8, "min_temp": 24.8, "max_temp": 32.8, "wx": "晴時多雲", "rain": "0.0 mm", "humidity": "70%", "pressure": "1011.5 hPa", "time": "2026-09-23 11:30:00"},
-        {"id": "467080", "name": "宜蘭", "county": "宜蘭縣", "town": "宜蘭市", "lat": 24.7640, "lon": 121.7565, "cur_temp": 27.2, "min_temp": 22.8, "max_temp": 29.5, "wx": "陰短暫雨", "rain": "4.0 mm", "humidity": "82%", "pressure": "1013.0 hPa", "time": "2026-09-23 11:30:00"},
-        {"id": "466990", "name": "花蓮", "county": "花蓮縣", "town": "花蓮市", "lat": 23.9752, "lon": 121.6133, "cur_temp": 27.8, "min_temp": 23.1, "max_temp": 30.2, "wx": "多雲短暫雨", "rain": "0.5 mm", "humidity": "78%", "pressure": "1012.8 hPa", "time": "2026-09-23 11:30:00"},
-        {"id": "467660", "name": "臺東", "county": "臺東縣", "town": "臺東市", "lat": 22.7554, "lon": 121.1546, "cur_temp": 29.3, "min_temp": 24.0, "max_temp": 31.5, "wx": "晴時多雲", "rain": "0.0 mm", "humidity": "71%", "pressure": "1012.0 hPa", "time": "2026-09-23 11:30:00"},
-        {"id": "467550", "name": "恆春", "county": "屏東縣", "town": "恆春鎮", "lat": 22.0039, "lon": 120.7463, "cur_temp": 30.0, "min_temp": 25.0, "max_temp": 32.0, "wx": "多雲微風", "rain": "0.0 mm", "humidity": "76%", "pressure": "1011.0 hPa", "time": "2026-09-23 11:30:00"},
+        {"id": "466920", "name": "臺北", "county": "臺北市", "town": "中正區", "lat": 25.0377, "lon": 121.5149, "temp": 28.5, "cur_temp": 28.5, "min_temp": 23.2, "max_temp": 31.8, "wx": "晴時多雲", "rain": "0.0 mm", "humidity": "65%", "pressure": "1012.4 hPa", "time": "2026-09-23 11:30:00"},
+        {"id": "466880", "name": "板橋", "county": "新北市", "town": "板橋區", "lat": 25.0000, "lon": 121.4420, "temp": 29.1, "cur_temp": 29.1, "min_temp": 23.8, "max_temp": 32.2, "wx": "多雲", "rain": "0.0 mm", "humidity": "68%", "pressure": "1012.1 hPa", "time": "2026-09-23 11:30:00"},
+        {"id": "466940", "name": "基隆", "county": "基隆市", "town": "仁愛區", "lat": 25.1333, "lon": 121.7405, "temp": 28.2, "cur_temp": 28.2, "min_temp": 23.7, "max_temp": 28.4, "wx": "多雲局部雨", "rain": "1.5 mm", "humidity": "75%", "pressure": "1012.5 hPa", "time": "2026-09-23 11:30:00"},
+        {"id": "467490", "name": "臺中", "county": "臺中市", "town": "北區", "lat": 24.1457, "lon": 120.6840, "temp": 30.4, "cur_temp": 30.4, "min_temp": 24.5, "max_temp": 33.1, "wx": "晴天", "rain": "0.0 mm", "humidity": "60%", "pressure": "1011.8 hPa", "time": "2026-09-23 11:30:00"},
+        {"id": "467440", "name": "高雄", "county": "高雄市", "town": "前鎮區", "lat": 22.5660, "lon": 120.3157, "temp": 31.2, "cur_temp": 31.2, "min_temp": 25.4, "max_temp": 33.6, "wx": "晴朗悶熱", "rain": "0.0 mm", "humidity": "72%", "pressure": "1011.2 hPa", "time": "2026-09-23 11:30:00"},
+        {"id": "467410", "name": "臺南", "county": "臺南市", "town": "中西區", "lat": 22.9933, "lon": 120.2048, "temp": 30.8, "cur_temp": 30.8, "min_temp": 24.8, "max_temp": 32.8, "wx": "晴時多雲", "rain": "0.0 mm", "humidity": "70%", "pressure": "1011.5 hPa", "time": "2026-09-23 11:30:00"},
+        {"id": "467080", "name": "宜蘭", "county": "宜蘭縣", "town": "宜蘭市", "lat": 24.7640, "lon": 121.7565, "temp": 27.2, "cur_temp": 27.2, "min_temp": 22.8, "max_temp": 29.5, "wx": "陰短暫雨", "rain": "4.0 mm", "humidity": "82%", "pressure": "1013.0 hPa", "time": "2026-09-23 11:30:00"},
+        {"id": "466990", "name": "花蓮", "county": "花蓮縣", "town": "花蓮市", "lat": 23.9752, "lon": 121.6133, "temp": 27.8, "cur_temp": 27.8, "min_temp": 23.1, "max_temp": 30.2, "wx": "多雲短暫雨", "rain": "0.5 mm", "humidity": "78%", "pressure": "1012.8 hPa", "time": "2026-09-23 11:30:00"},
+        {"id": "467660", "name": "臺東", "county": "臺東縣", "town": "臺東市", "lat": 22.7554, "lon": 121.1546, "temp": 29.3, "cur_temp": 29.3, "min_temp": 24.0, "max_temp": 31.5, "wx": "晴時多雲", "rain": "0.0 mm", "humidity": "71%", "pressure": "1012.0 hPa", "time": "2026-09-23 11:30:00"},
+        {"id": "467550", "name": "恆春", "county": "屏東縣", "town": "恆春鎮", "lat": 22.0039, "lon": 120.7463, "temp": 30.0, "cur_temp": 30.0, "min_temp": 25.0, "max_temp": 32.0, "wx": "多雲微風", "rain": "0.0 mm", "humidity": "76%", "pressure": "1011.0 hPa", "time": "2026-09-23 11:30:00"},
     ]
 
 def fetch_live_cwa_oa0003(api_key: str):
@@ -121,6 +121,7 @@ def fetch_live_cwa_oa0003(api_key: str):
                 "town": town,
                 "lat": lat,
                 "lon": lon,
+                "temp": cur_temp,
                 "cur_temp": cur_temp,
                 "min_temp": min_temp,
                 "max_temp": max_temp,
