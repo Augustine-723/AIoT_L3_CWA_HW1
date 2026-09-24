@@ -12,69 +12,101 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- 頂部 Navigation Bar -->
+    <!-- 頂部 Hero Navigation Bar -->
     <header class="app-header">
-        <div class="logo-group">
-            <span class="logo-icon">🛰️</span>
-            <div>
-                <h1 class="app-title">臺灣即時氣象地圖</h1>
-                <p class="app-subtitle">中央氣象署開放資料 (CWA O-A0003-001) 即時視覺化 · 類 Windy 風格</p>
+        <div class="header-container">
+            <div class="logo-group">
+                <span class="logo-icon">🛰️</span>
+                <div>
+                    <h1 class="app-title">臺灣即時氣象地圖</h1>
+                    <p class="app-subtitle">中央氣象署開放資料 (CWA O-A0003-001) 即時視覺化 · 類 Windy 風格</p>
+                </div>
             </div>
-        </div>
-        <div class="header-badges">
-            <span class="badge badge-pulse" id="status-badge">📡 載入氣象資料中...</span>
-            <button class="btn btn-sync" id="btn-refresh">🔄 重新整理</button>
+            <!-- 首頁 Hero 區狀態：Live 狀態、測站數、最後更新時間 -->
+            <div class="header-badges">
+                <div class="hero-chip chip-live" id="hero-live-badge">
+                    <span class="chip-pulse-dot"></span>
+                    <span id="hero-live-text">CWA 即時連線</span>
+                </div>
+                <div class="hero-chip chip-stat">
+                    <span class="chip-icon">📡</span>
+                    <span id="hero-station-count">341 測站監測中</span>
+                </div>
+                <div class="hero-chip chip-time">
+                    <span class="chip-icon">🕒</span>
+                    <span id="hero-update-label">更新時間: </span>
+                    <span id="hero-update-time">--:--:--</span>
+                </div>
+                <span id="status-badge" style="display: none;">📡 連線中</span>
+                <button class="btn btn-sync" id="btn-refresh">🔄 重新整理</button>
+            </div>
         </div>
     </header>
 
     <!-- 主儀表板容器 -->
     <main class="dashboard-container">
-        <!-- 4 塊玻璃擬態指標卡片 (Glassmorphism Metric Cards) -->
+        <!-- 四張 KPI 卡片（三級層級：小標題 -> 大數字 -> 次要資訊） -->
         <section class="metrics-grid">
-            <div class="glass-card">
-                <div class="metric-top">
-                    <span class="metric-label">📍 當前觀測站點</span>
-                    <span class="metric-tag" id="tag-county">臺灣</span>
+            <!-- 卡片 1: 觀測站點 -->
+            <div class="glass-card kpi-card">
+                <div class="kpi-eyebrow">
+                    <span class="kpi-label">📍 當前觀測站點</span>
+                    <span class="kpi-tag" id="tag-county">全臺灣</span>
                 </div>
-                <div class="metric-value" id="card-station" style="color: #38bdf8;">--</div>
-                <div class="metric-sub" id="card-time">觀測時間: --</div>
+                <div class="kpi-hero-wrap">
+                    <div class="kpi-number" id="card-station" style="color: #38bdf8;">--</div>
+                </div>
+                <div class="kpi-meta" id="card-time">觀測時間: --</div>
             </div>
-            <div class="glass-card">
-                <div class="metric-top">
-                    <span class="metric-label">🌡️ 即時氣溫 / 今日溫幅</span>
-                    <span class="metric-tag" id="tag-temp-mode">即時</span>
+
+            <!-- 卡片 2: 即時氣溫 -->
+            <div class="glass-card kpi-card">
+                <div class="kpi-eyebrow">
+                    <span class="kpi-label">🌡️ 即時氣溫觀測</span>
+                    <span class="kpi-tag kpi-tag-orange" id="tag-temp-mode">即時溫標</span>
                 </div>
-                <div class="metric-value" id="card-cur-temp" style="color: #fb923c;">--°C</div>
-                <div class="metric-sub" id="card-range">今日極值: --°C ~ --°C</div>
+                <div class="kpi-hero-wrap">
+                    <div class="kpi-number" id="card-cur-temp" style="color: #fb923c;">--°C</div>
+                </div>
+                <div class="kpi-meta" id="card-range">今日極值: --°C ~ --°C</div>
             </div>
-            <div class="glass-card">
-                <div class="metric-top">
-                    <span class="metric-label">🌧️ 即時降雨觀測</span>
-                    <span class="metric-tag" id="tag-rain-mode">日累積</span>
+
+            <!-- 卡片 3: 降雨累積 -->
+            <div class="glass-card kpi-card">
+                <div class="kpi-eyebrow">
+                    <span class="kpi-label">🌧️ 即時累積降雨</span>
+                    <span class="kpi-tag kpi-tag-cyan" id="tag-rain-mode">日累積</span>
                 </div>
-                <div class="metric-value" id="card-rain" style="color: #06b6d4;">-- mm</div>
-                <div class="metric-sub" id="card-rain-sub">自動雨量測站累積水深</div>
+                <div class="kpi-hero-wrap">
+                    <div class="kpi-number" id="card-rain" style="color: #06b6d4;">-- mm</div>
+                </div>
+                <div class="kpi-meta" id="card-rain-sub">自動雨量測站即時觀測值</div>
             </div>
-            <div class="glass-card">
-                <div class="metric-top">
-                    <span class="metric-label">⛅ 天氣型態與濕度</span>
-                    <span class="metric-tag" id="tag-wx-mode">環境氣壓</span>
+
+            <!-- 卡片 4: 天氣型態與大氣環境 -->
+            <div class="glass-card kpi-card">
+                <div class="kpi-eyebrow">
+                    <span class="kpi-label">⛅ 天氣型態與濕度</span>
+                    <span class="kpi-tag kpi-tag-purple" id="tag-wx-mode">大氣環境</span>
                 </div>
-                <div class="metric-value" id="card-wx" style="color: #c084fc;">--</div>
-                <div class="metric-sub" id="card-hum">濕度: -- | 氣壓: --</div>
+                <div class="kpi-hero-wrap">
+                    <div class="kpi-number" id="card-wx" style="color: #c084fc;">--</div>
+                </div>
+                <div class="kpi-meta" id="card-hum">濕度: -- · 氣壓: --</div>
             </div>
         </section>
 
-        <!-- 中間核心視覺區：左側放大地圖，右側控制面板與 Chart.js 圖表 -->
+        <!-- 中間核心視覺區：左側 580px 放大主地圖，右側 Floating Glass Panel 控制與圖表 -->
         <section class="visual-split">
-            <!-- 左欄：Leaflet 地圖 (放大視覺呈現) -->
-            <div class="map-card">
+            <!-- 左欄：Leaflet 地圖 (視覺主角，高度 580px) -->
+            <div class="glass-card map-card">
                 <div class="card-header-bar">
                     <div class="card-title-group">
                         <span class="card-title">🗺️ 全島自動測站氣象分佈圖</span>
                         <span class="card-sub-info" id="station-count-info">底圖: Esri Dark Gray · 座標: WGS84</span>
                     </div>
                 </div>
+                <!-- 地圖本體 (580px 高度) -->
                 <div id="leaflet-map"></div>
 
                 <!-- 簡化溫標圖例 (Sleek Windy Scale) -->
@@ -94,10 +126,14 @@
                 </div>
             </div>
 
-            <!-- 右欄：控制面板與 Chart.js 折線圖 -->
+            <!-- 右欄：Floating Glass Panel 控制面板與 Chart.js 折線圖 -->
             <div class="side-panel">
-                <!-- 篩選控制面板 -->
-                <div class="control-box">
+                <!-- 浮動玻璃控制面板 (Floating Glass Panel) -->
+                <div class="floating-glass-panel">
+                    <div class="panel-header-mini">
+                        <span class="panel-tag-icon">🎛️</span>
+                        <span class="panel-heading">觀測條件與圖層</span>
+                    </div>
                     <div class="control-row">
                         <div class="control-field">
                             <label for="select-county">縣市篩選</label>
@@ -115,14 +151,14 @@
 
                     <div class="layer-toggle-group">
                         <span class="layer-lbl">圖層模式:</span>
-                        <button class="layer-btn active" data-layer="temp">🌡️ 氣溫分佈</button>
-                        <button class="layer-btn" data-layer="rain">🌧️ 雨量觀測</button>
-                        <button class="layer-btn" data-layer="station">📍 測站點位</button>
+                        <button class="layer-btn active" data-layer="temp">🌡️ 氣溫</button>
+                        <button class="layer-btn" data-layer="rain">🌧️ 雨量</button>
+                        <button class="layer-btn" data-layer="station">📍 測站</button>
                     </div>
                 </div>
 
-                <!-- Chart.js 氣溫趨勢折線圖 -->
-                <div class="chart-box">
+                <!-- Chart.js 氣溫趨勢折線圖玻璃卡片 -->
+                <div class="glass-card chart-box">
                     <div class="card-header-bar">
                         <span class="card-title" id="chart-title">📈 縣市測站溫度比較 (Chart.js)</span>
                     </div>
@@ -133,10 +169,13 @@
             </div>
         </section>
 
-        <!-- 底部：詳細資料表 (支援分頁與即時搜尋) -->
-        <section class="table-section">
+        <!-- 底部：詳細資料表 (預設 6 個主要欄位，其餘放入展開抽屜，支援分頁) -->
+        <section class="glass-card table-section">
             <div class="table-header-bar">
-                <span class="card-title">📋 觀測站即時記錄表</span>
+                <div class="table-title-group">
+                    <span class="card-title">📋 觀測站即時記錄表</span>
+                    <span class="table-sub-tip">💡 點選任一測站列可連動地圖並展開詳細資訊</span>
+                </div>
                 <div class="table-actions">
                     <input type="text" id="table-search" placeholder="🔍 搜尋測站、縣市或天氣..." class="search-input">
                     <button class="btn btn-export" id="btn-export-csv">📥 匯出 CSV 報表</button>
@@ -146,21 +185,18 @@
                 <table class="data-table" id="weather-table">
                     <thead>
                         <tr>
-                            <th>測站代碼</th>
+                            <th>測站</th>
                             <th>縣市</th>
-                            <th>測站名稱</th>
-                            <th>觀測時間</th>
-                            <th>天氣現象</th>
-                            <th>當前氣溫</th>
-                            <th>最高溫 (MaxT)</th>
-                            <th>最低溫 (MinT)</th>
+                            <th>氣溫</th>
                             <th>雨量</th>
                             <th>濕度</th>
-                            <th>WGS84 座標</th>
+                            <th>觀測時間</th>
+                            <th style="text-align: center; width: 90px;">詳細資訊</th>
                         </tr>
                     </thead>
                     <tbody id="table-body">
-                        <tr><td colspan="11" style="text-align:center; padding: 30px;">正在載入氣象資料...</td></tr>
+                        <!-- 由 script.js 自動灌入 Skeleton 或測站資料 -->
+                        <tr><td colspan="7" style="text-align:center; padding: 30px;">正在載入氣象資料...</td></tr>
                     </tbody>
                 </table>
             </div>
