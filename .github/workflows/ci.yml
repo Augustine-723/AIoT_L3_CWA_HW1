@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: Run SQLite & CWA Parsing Tests
+    name: Run SQLite, CWA & Serverless API Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -26,8 +26,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-streamlit.txt
 
+      - name: Verify Python Syntax & Bytecode Compilation
+        run: |
+          python -m py_compile database.py cwa_api.py streamlit_app.py test_db.py test_weather_api.py api/weather.py
+
       - name: Run Database & Parsing Test Suite
         env:
           CWA_API_KEY: ${{ secrets.CWA_API_KEY }}
         run: |
           python test_db.py
+
+      - name: Run Vercel Serverless Weather API & Schema Test Suite
+        env:
+          CWA_API_KEY: ${{ secrets.CWA_API_KEY }}
+        run: |
+          python test_weather_api.py
