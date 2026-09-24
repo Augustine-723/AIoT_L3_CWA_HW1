@@ -10,6 +10,9 @@ let currentStation = null;
 let currentLayer = "temp"; // 'temp', 'rain', 'station'
 let map = null;
 let markerLayerGroup = null;
+let markerClusterGroup = null;
+let stationMarkerMap = {}; // stationId -> L.Marker / L.CircleMarker
+let countyBoundsMap = {};  // countyName -> L.LatLngBounds
 let chartInstance = null;
 
 // 表格分頁狀態
@@ -64,6 +67,32 @@ const MAJOR_CITIES = [
     { name: "澎湖", lat: 23.5712, lon: 119.5793 }
 ];
 
+// 初始化臺灣各縣市 GeoJSON 邊界範圍 (供縣市選擇自動 fitBounds 使用)
+function initCountyBounds() {
+    countyBoundsMap = {};
+    if (typeof TW_COUNTIES_GEOJSON !== 'undefined' && TW_COUNTIES_GEOJSON.features) {
+        TW_COUNTIES_GEOJSON.features.forEach(f => {
+            const rawName = f.properties && f.properties.COUNTYNAME;
+            if (!rawName) return;
+            const normalizedName = rawName.replace(/台/g, '臺');
+            const altName = rawName.replace(/臺/g, '台');
+            try {
+                const layer = L.geoJSON(f);
+                const bounds = layer.getBounds();
+                [rawName, normalizedName, altName].forEach(name => {
+                    if (!countyBoundsMap[name]) {
+                        countyBoundsMap[name] = L.latLngBounds(bounds.getSouthWest(), bounds.getNorthEast());
+                    } else {
+                        countyBoundsMap[name].extend(bounds);
+                    }
+                });
+            } catch (err) {
+                console.warn("Failed to calculate bounds for feature:", rawName, err);
+            }
+        });
+    }
+}
+
 // 初始化地圖 (防禦性載入，高度約 580px 成為視覺主角)
 function initMap() {
     if (typeof L === 'undefined') {
@@ -74,6 +103,8 @@ function initMap() {
     if (!mapEl || map) return;
 
     try {
+        initCountyBounds();
+
         map = L.map('leaflet-map', { 
             zoomControl: false,
             attributionControl: false
@@ -120,7 +151,37 @@ function initMap() {
             }
         });
 
-        markerLayerGroup = L.layerGroup().addTo(map);
+        // 4. 初始化深色 Glassmorphism MarkerClusterGroup
+        if (typeof L.markerClusterGroup === 'function') {
+            markerClusterGroup = L.markerClusterGroup({
+                showCoverageOnHover: false,
+                maxClusterRadius: 42,
+                spiderfyOnMaxZoom: true,
+                zoomToBoundsOnClick: true,
+                animate: true,
+                iconCreateFunction: function(cluster) {
+                    const count = cluster.getChildCount();
+                    let size = 36;
+                    let clusterClass = 'cluster-sm';
+                    if (count >= 30) {
+                        size = 48;
+                        clusterClass = 'cluster-lg';
+                    } else if (count >= 12) {
+                        size = 42;
+                        clusterClass = 'cluster-md';
+                    }
+                    return L.divIcon({
+                        html: `<div class="dark-cluster-badge ${clusterClass}"><span>${count}</span></div>`,
+                        className: 'custom-cluster-marker',
+                        iconSize: L.point(size, size)
+                    });
+                }
+            });
+            map.addLayer(markerClusterGroup);
+        } else {
+            console.warn("Leaflet.markercluster not found, falling back to L.layerGroup");
+            markerClusterGroup = L.layerGroup().addTo(map);
+        }
 
         setTimeout(() => {
             if (map) map.invalidateSize();
@@ -130,11 +191,12 @@ function initMap() {
     }
 }
 
-// 繪製地圖測站標記
+// 繪製地圖測站標記 (支援 MarkerCluster、氣溫/雨量/測站三模式)
 function renderMapMarkers() {
-    if (!map || !markerLayerGroup || typeof L === 'undefined') return;
+    if (!map || !markerClusterGroup || typeof L === 'undefined') return;
     try {
-        markerLayerGroup.clearLayers();
+        markerClusterGroup.clearLayers();
+        stationMarkerMap = {};
 
         filteredStations.forEach(st => {
             if (!st.lat || !st.lon) return;
@@ -215,21 +277,62 @@ function renderMapMarkers() {
             </div>
             `;
 
-            marker.bindPopup(popupHtml, { maxWidth: 240 });
+            marker.bindPopup(popupHtml, { maxWidth: 250 });
 
             marker.on('click', () => {
-                selectStation(st);
+                selectStation(st, false);
             });
 
-            markerLayerGroup.addLayer(marker);
+            stationMarkerMap[st.id] = marker;
+            markerClusterGroup.addLayer(marker);
         });
     } catch (err) {
         console.error("renderMapMarkers error:", err);
     }
 }
 
-// 選擇單一測站並連動更新四張三級層級 KPI 卡片
-function selectStation(st) {
+// 標記短暫 Highlight 動畫效果 (放大與發光外框)
+function triggerMarkerHighlight(marker, st) {
+    if (!marker) return;
+
+    if (typeof marker.setStyle === 'function') {
+        // CircleMarker 模式
+        marker.setStyle({
+            radius: 15,
+            weight: 4,
+            color: '#38bdf8',
+            fillOpacity: 1
+        });
+        if (marker._path) {
+            marker._path.classList.add('marker-highlight-pulse');
+        }
+        setTimeout(() => {
+            if (marker) {
+                const isSel = currentStation && currentStation.id === st.id;
+                marker.setStyle({
+                    radius: isSel ? 10 : 7,
+                    weight: isSel ? 3 : 2,
+                    color: isSel ? "#ffffff" : "rgba(255, 255, 255, 0.85)",
+                    fillOpacity: 0.92
+                });
+                if (marker._path) {
+                    marker._path.classList.remove('marker-highlight-pulse');
+                }
+            }
+        }, 1800);
+    } else if (marker._icon) {
+        // 傳統 Marker 模式
+        marker._icon.classList.add('marker-highlight-pulse');
+        setTimeout(() => {
+            if (marker && marker._icon) {
+                marker._icon.classList.remove('marker-highlight-pulse');
+            }
+        }, 1800);
+    }
+}
+
+// 選擇單一測站並連動更新四張三級層級 KPI 卡片 (支援 flyTo、Popup、Highlight)
+function selectStation(st, shouldFlyTo = true) {
     if (!st) return;
     currentStation = st;
 
@@ -279,30 +382,38 @@ function selectStation(st) {
         }
     });
 
-    // 4. 聚焦地圖
+    // 4. 定位地圖並自動開彈窗 + Marker Highlight
     try {
-        if (st.lat && st.lon && map) {
-            map.panTo([st.lat, st.lon], { animate: true, duration: 0.8 });
+        if (shouldFlyTo && st.lat && st.lon && map) {
+            const currentZ = map.getZoom();
+            const targetZ = currentZ < 12 ? 13 : currentZ;
+            map.flyTo([st.lat, st.lon], targetZ, { duration: 1.0 });
+        }
+
+        const marker = stationMarkerMap[st.id];
+        if (marker) {
+            if (markerClusterGroup && typeof markerClusterGroup.zoomToShowLayer === 'function') {
+                markerClusterGroup.zoomToShowLayer(marker, () => {
+                    marker.openPopup();
+                    triggerMarkerHighlight(marker, st);
+                });
+            } else {
+                marker.openPopup();
+                triggerMarkerHighlight(marker, st);
+            }
         }
     } catch (e) {
-        console.warn("map.panTo error:", e);
+        console.warn("map flyTo / popup error:", e);
     }
 
-    // 5. 重繪標記高亮狀態
-    try {
-        renderMapMarkers();
-    } catch (e) {
-        console.warn("renderMapMarkers in selectStation failed:", e);
-    }
-
-    // 6. 更新折線圖
+    // 5. 更新折線圖
     try {
         updateChart();
     } catch (e) {
         console.warn("updateChart in selectStation failed:", e);
     }
 
-    // 7. 同步 Modal 控制狀態
+    // 6. 同步 Modal 控制狀態
     if (isMapModalOpen) {
         syncModalControls();
     }
@@ -380,6 +491,23 @@ function updateChart() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                onClick: (event, elements) => {
+                    if (!elements || elements.length === 0) return;
+                    const index = elements[0].index;
+                    const targetStation = chartDataSources[index];
+                    if (targetStation) {
+                        selectStation(targetStation, true);
+                        if (!isMapModalOpen) {
+                            const mapCard = document.getElementById('map-card-wrapper');
+                            if (mapCard) mapCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
+                    }
+                },
+                onHover: (event, chartElement) => {
+                    if (event.native && event.native.target) {
+                        event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                    }
+                },
                 interaction: {
                     mode: 'index',
                     intersect: false,
@@ -584,7 +712,7 @@ window.onTableRowClick = function(stationId) {
     }
 };
 
-// 篩選測站處理
+// 篩選測站處理 (縣市選擇後自動縮放 fitBounds)
 function handleCountyChange() {
     const countySelect = document.getElementById('select-county');
     const county = countySelect ? countySelect.value : 'all';
@@ -601,9 +729,10 @@ function handleCountyChange() {
     // 更新站點下拉選單
     const stationSelect = document.getElementById('select-station');
     if (stationSelect) {
-        stationSelect.innerHTML = filteredStations.map(st => 
-            `<option value="${st.id}">${st.county} - ${st.name}</option>`
-        ).join('');
+        stationSelect.innerHTML = `<option value="">請選擇測站或點擊地圖...</option>` + 
+            filteredStations.map(st => 
+                `<option value="${st.id}">${st.county} - ${st.name}</option>`
+            ).join('');
     }
 
     const countInfo = document.getElementById('station-count-info');
@@ -612,12 +741,112 @@ function handleCountyChange() {
     }
 
     if (filteredStations.length > 0) {
-        selectStation(filteredStations[0]);
+        selectStation(filteredStations[0], false);
+    } else {
+        resetKpiCardsToOverview();
     }
 
     try { renderMapMarkers(); } catch (e) { console.error("renderMapMarkers error:", e); }
     try { renderTable(filteredStations); } catch (e) { console.error("renderTable error:", e); }
     try { updateChart(); } catch (e) { console.error("updateChart error:", e); }
+
+    // 縣市選擇後自動縮放 (Requirement 2)
+    if (map) {
+        if (county === 'all') {
+            map.flyTo([23.82, 120.95], 7, { duration: 1.0 });
+        } else {
+            let targetBounds = countyBoundsMap[county] || 
+                               countyBoundsMap[county.replace(/台/g, '臺')] || 
+                               countyBoundsMap[county.replace(/臺/g, '台')];
+
+            if (!targetBounds && filteredStations.length > 0) {
+                const validCoords = filteredStations.filter(s => s.lat && s.lon).map(s => [s.lat, s.lon]);
+                if (validCoords.length > 0) {
+                    targetBounds = L.latLngBounds(validCoords);
+                }
+            }
+
+            if (targetBounds && targetBounds.isValid()) {
+                map.fitBounds(targetBounds, {
+                    padding: [30, 30],
+                    maxZoom: 12,
+                    animate: true,
+                    duration: 1.0
+                });
+            }
+        }
+    }
+
+    if (isMapModalOpen) {
+        syncModalControls();
+    }
+}
+
+// 重設全島 Overview 卡片資料
+function resetKpiCardsToOverview() {
+    const elStation = document.getElementById('card-station');
+    if (elStation) elStation.innerText = "全臺灣監測";
+    const elTagCounty = document.getElementById('tag-county');
+    if (elTagCounty) elTagCounty.innerText = "全臺灣";
+    const elTime = document.getElementById('card-time');
+    const latestTime = allStations[0]?.time ? allStations[0].time.slice(11, 16) : '--:--';
+    if (elTime) elTime.innerText = `觀測時間: ${latestTime}`;
+
+    const validTemps = allStations.map(s => Number(s.temp !== undefined ? s.temp : s.cur_temp)).filter(t => !isNaN(t));
+    const avgTemp = validTemps.length > 0 ? (validTemps.reduce((a, b) => a + b, 0) / validTemps.length).toFixed(1) : "--";
+    const minT = validTemps.length > 0 ? Math.min(...validTemps).toFixed(1) : "--";
+    const maxT = validTemps.length > 0 ? Math.max(...validTemps).toFixed(1) : "--";
+
+    const elCur = document.getElementById('card-cur-temp');
+    if (elCur) elCur.innerText = `${avgTemp}°C`;
+    const elRange = document.getElementById('card-range');
+    if (elRange) elRange.innerText = `全臺極值: ${minT}°C ~ ${maxT}°C`;
+
+    const elRain = document.getElementById('card-rain');
+    if (elRain) elRain.innerText = "即時監測中";
+    const elRainSub = document.getElementById('card-rain-sub');
+    if (elRainSub) elRainSub.innerText = "全島累積水量觀測";
+
+    const elWx = document.getElementById('card-wx');
+    if (elWx) elWx.innerText = "全島觀測";
+    const elHum = document.getElementById('card-hum');
+    if (elHum) elHum.innerText = `監測測站總數: ${allStations.length} 站`;
+}
+
+// 回到全臺灣視角並清除目前選取的測站 (Requirement 4)
+function resetToTaiwanView() {
+    const countySelect = document.getElementById('select-county');
+    if (countySelect) countySelect.value = 'all';
+
+    currentStation = null;
+    filteredStations = [...allStations];
+    currentPage = 1;
+
+    // 恢復站點選單
+    const stationSelect = document.getElementById('select-station');
+    if (stationSelect) {
+        stationSelect.innerHTML = `<option value="">請選擇測站或點擊地圖...</option>` + 
+            filteredStations.map(st => `<option value="${st.id}">${st.county} - ${st.name}</option>`).join('');
+    }
+
+    const countInfo = document.getElementById('station-count-info');
+    if (countInfo) {
+        countInfo.innerText = `已顯示 ${filteredStations.length} 個站點 · Esri Dark Gray`;
+    }
+
+    // 移除表格列選取狀態
+    document.querySelectorAll('.station-row').forEach(r => r.classList.remove('selected'));
+
+    resetKpiCardsToOverview();
+
+    try { renderMapMarkers(); } catch (e) { console.error("renderMapMarkers error:", e); }
+    try { renderTable(filteredStations); } catch (e) { console.error("renderTable error:", e); }
+    try { updateChart(); } catch (e) { console.error("updateChart error:", e); }
+
+    // 回到全臺灣視角
+    if (map) {
+        map.flyTo([23.82, 120.95], 7, { duration: 1.0 });
+    }
 
     if (isMapModalOpen) {
         syncModalControls();
@@ -792,14 +1021,14 @@ function closeMapModal() {
     }, 200);
 }
 
-// 核心資料載入函式 (含 Skeleton 骨架屏與紅色錯誤處理)
+// 核心資料載入函式 (含即時狀態列與紅色錯誤處理 Requirement 6)
 async function loadWeatherData() {
     showSkeletonLoading();
 
     const heroBadge = document.getElementById('hero-live-badge');
     const heroText = document.getElementById('hero-live-text');
-    if (heroBadge) heroBadge.className = "hero-chip chip-live";
-    if (heroText) heroText.innerText = "正在更新氣象資料...";
+    if (heroBadge) heroBadge.className = "hero-chip chip-syncing";
+    if (heroText) heroText.innerHTML = `<span class="chip-spin">⟳</span> SYNC · 正在取得氣象資料...`;
 
     try {
         console.log("正在請求 /api/weather 即時氣象資料...");
@@ -820,16 +1049,12 @@ async function loadWeatherData() {
         }));
         filteredStations = [...allStations];
 
-        // 更新 Hero 區域：Live 狀態、測站數、最後更新時間
-        if (heroBadge) heroBadge.className = data.is_live ? "hero-chip chip-live" : "hero-chip";
-        if (heroText) heroText.innerText = data.is_live ? "CWA 即時連線" : "示範模式";
-
-        const statCountEl = document.getElementById('hero-station-count');
-        if (statCountEl) statCountEl.innerText = `${allStations.length} 測站監測中`;
-
-        const updateTimeEl = document.getElementById('hero-update-time');
-        const latestTime = allStations[0]?.time ? allStations[0].time.slice(11) : new Date().toTimeString().slice(0, 8);
-        if (updateTimeEl) updateTimeEl.innerText = latestTime;
+        // 更新 Hero 即時狀態列 (Requirement 6: ● LIVE · 347 stations · Updated 12:43)
+        const latestTime = allStations[0]?.time ? allStations[0].time.slice(11, 16) : new Date().toTimeString().slice(0, 5);
+        if (heroBadge) heroBadge.className = "hero-chip chip-live";
+        if (heroText) {
+            heroText.innerHTML = `<span class="chip-pulse-dot"></span> LIVE · ${allStations.length} stations · Updated ${latestTime}`;
+        }
 
         // 填入縣市清單
         const countySelect = document.getElementById('select-county');
@@ -844,12 +1069,12 @@ async function loadWeatherData() {
     } catch (err) {
         console.error("無法取得 /api/weather:", err);
         
-        // 當 API 錯誤時，改為紅色提示「氣象資料讀取失敗，請重新整理」
+        // 當 API 錯誤時，改為明確紅色錯誤狀態 (Requirement 6)
         if (heroBadge) {
             heroBadge.className = "hero-chip chip-error";
         }
         if (heroText) {
-            heroText.innerText = "氣象資料讀取失敗";
+            heroText.innerHTML = `<span class="chip-pulse-dot" style="background:#fb7185;"></span> ERROR · 氣象資料讀取失敗，請重新整理`;
         }
 
         // 資料表提示紅色警示
@@ -896,15 +1121,22 @@ function bindEvents() {
         });
     });
 
-    // 搜尋過濾表格 (即時搜尋並重設分頁)
+    // 回到全臺按鈕 (主面板與 Modal 均支援 Requirement 4)
+    const btnResetMap = document.getElementById('btn-reset-map');
+    if (btnResetMap) btnResetMap.addEventListener('click', resetToTaiwanView);
+
+    const modalBtnResetMap = document.getElementById('modal-btn-reset-map');
+    if (modalBtnResetMap) modalBtnResetMap.addEventListener('click', resetToTaiwanView);
+
+    // 搜尋過濾表格 (支援即時搜尋與 Enter 自動定位)
     const searchInput = document.getElementById('table-search');
     if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase().trim();
+        const doSearch = () => {
+            const query = searchInput.value.toLowerCase().trim();
             currentPage = 1;
             if (!query) {
                 renderTable(filteredStations);
-                return;
+                return [];
             }
             const matches = filteredStations.filter(s => 
                 (s.name && s.name.toLowerCase().includes(query)) ||
@@ -913,6 +1145,19 @@ function bindEvents() {
                 (s.id && s.id.toLowerCase().includes(query))
             );
             renderTable(matches);
+            return matches;
+        };
+
+        searchInput.addEventListener('input', doSearch);
+
+        // Enter 鍵自動定位符合的第一個站點
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const matches = doSearch();
+                if (matches && matches.length > 0) {
+                    selectStation(matches[0], true);
+                }
+            }
         });
     }
 

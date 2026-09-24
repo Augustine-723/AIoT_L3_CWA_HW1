@@ -920,8 +920,37 @@ body {
 }
 
 /* =========================================================
-   ⛶ 放大地圖按鈕與 Fullscreen Modal Overlay (約 90% 畫面)
+   ⛶ 放大地圖與 ⌂ 回到全臺 按鈕群與 Fullscreen Modal Overlay
    ========================================================= */
+.map-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-reset-map {
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--text-primary);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    padding: 6px 13px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    backdrop-filter: blur(8px);
+}
+
+.btn-reset-map:hover {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.35);
+    box-shadow: 0 0 14px rgba(255, 255, 255, 0.22);
+    transform: translateY(-1px);
+}
+
 .btn-expand-map {
     background: rgba(56, 189, 248, 0.12);
     color: var(--accent-sky);
@@ -1128,4 +1157,97 @@ body {
         flex: 1;
         width: auto;
     }
+}
+
+/* =========================================================
+   深色 Glassmorphism MarkerCluster & 標記微動態樣式
+   ========================================================= */
+.custom-cluster-marker {
+    background: none !important;
+    border: none !important;
+}
+
+.dark-cluster-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #f8fafc;
+    font-weight: 800;
+    font-family: var(--font-main);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    cursor: pointer;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s;
+    user-select: none;
+}
+
+.dark-cluster-badge:hover {
+    transform: scale(1.15);
+}
+
+.dark-cluster-badge.cluster-sm {
+    width: 36px;
+    height: 36px;
+    font-size: 0.82rem;
+    background: rgba(15, 23, 42, 0.88);
+    border: 2px solid #38bdf8;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.45);
+}
+
+.dark-cluster-badge.cluster-md {
+    width: 42px;
+    height: 42px;
+    font-size: 0.88rem;
+    background: rgba(15, 23, 42, 0.90);
+    border: 2px solid #f59e0b;
+    box-shadow: 0 0 18px rgba(245, 158, 11, 0.48);
+}
+
+.dark-cluster-badge.cluster-lg {
+    width: 48px;
+    height: 48px;
+    font-size: 0.94rem;
+    background: rgba(15, 23, 42, 0.94);
+    border: 2px solid #f43f5e;
+    box-shadow: 0 0 22px rgba(244, 63, 94, 0.55);
+}
+
+/* 標記高亮動畫 (放大 + 外框發光) */
+@keyframes markerPulseHighlight {
+    0% {
+        transform: scale(1);
+        filter: drop-shadow(0 0 0 rgba(56, 189, 248, 0.9));
+    }
+    50% {
+        transform: scale(1.4);
+        filter: drop-shadow(0 0 20px rgba(56, 189, 248, 1)) drop-shadow(0 0 35px rgba(56, 189, 248, 0.8));
+    }
+    100% {
+        transform: scale(1);
+        filter: drop-shadow(0 0 0 rgba(56, 189, 248, 0));
+    }
+}
+
+.marker-highlight-pulse {
+    animation: markerPulseHighlight 1.8s ease-in-out;
+    z-index: 99999 !important;
+}
+
+/* 狀態列即時同調微調 */
+.chip-syncing {
+    background: rgba(56, 189, 248, 0.12) !important;
+    border-color: rgba(56, 189, 248, 0.35) !important;
+    color: var(--accent-sky) !important;
+}
+
+.chip-spin {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }

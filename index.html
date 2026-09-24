@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>臺灣即時氣象地圖 | Windy 風格 Vercel 版</title>
     <meta name="description" content="中央氣象署開放資料即時視覺化地圖（類 Windy 風格）- AIoT L3 HW1">
-    <!-- Leaflet CSS -->
+    <!-- Leaflet CSS & MarkerCluster CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="style.css">
@@ -22,22 +24,11 @@
                     <p class="app-subtitle">中央氣象署開放資料 (CWA O-A0003-001) 即時視覺化 · 類 Windy 風格</p>
                 </div>
             </div>
-            <!-- 首頁 Hero 區狀態：Live 狀態、測站數、最後更新時間 -->
+            <!-- 首頁 Hero 區狀態：即時狀態列 (● LIVE · 347 stations · Updated 12:43) -->
             <div class="header-badges">
                 <div class="hero-chip chip-live" id="hero-live-badge">
-                    <span class="chip-pulse-dot"></span>
-                    <span id="hero-live-text">CWA 即時連線</span>
+                    <span id="hero-live-text">● LIVE · 正在連線 CWA...</span>
                 </div>
-                <div class="hero-chip chip-stat">
-                    <span class="chip-icon">📡</span>
-                    <span id="hero-station-count">341 測站監測中</span>
-                </div>
-                <div class="hero-chip chip-time">
-                    <span class="chip-icon">🕒</span>
-                    <span id="hero-update-label">更新時間: </span>
-                    <span id="hero-update-time">--:--:--</span>
-                </div>
-                <span id="status-badge" style="display: none;">📡 連線中</span>
                 <button class="btn btn-sync" id="btn-refresh">🔄 重新整理</button>
             </div>
         </div>
@@ -105,10 +96,15 @@
                         <span class="card-title">🗺️ 全島自動測站氣象分佈圖</span>
                         <span class="card-sub-info" id="station-count-info">底圖: Esri Dark Gray · 座標: WGS84</span>
                     </div>
-                    <!-- 右上角 ⛶ 放大地圖 (Expand Map) 按鈕 -->
-                    <button class="btn btn-expand-map" id="btn-expand-map" title="放大地圖至全螢幕模式 (約 90% 畫面)">
-                        <span>⛶ 放大地圖</span>
-                    </button>
+                    <!-- 右上角 地圖操作按鈕群 (回到全臺 + 放大地圖) -->
+                    <div class="map-header-actions">
+                        <button class="btn btn-reset-map" id="btn-reset-map" title="回到全臺灣視角並清除選取">
+                            <span>⌂ 回到全臺</span>
+                        </button>
+                        <button class="btn btn-expand-map" id="btn-expand-map" title="放大地圖至全螢幕模式 (約 90% 畫面)">
+                            <span>⛶ 放大地圖</span>
+                        </button>
+                    </div>
                 </div>
                 <!-- 地圖本體原始插槽 (580px 高度) -->
                 <div id="map-slot-original" class="map-slot">
@@ -230,8 +226,11 @@
                     <span class="modal-subtitle" id="modal-station-count-info">341 測站 · Esri Dark Gray</span>
                 </div>
 
-                <!-- 放大模式專屬控制列 (保留縣市、測站、圖層切換) -->
+                <!-- 放大模式專屬控制列 (保留回到全臺、縣市、測站、圖層切換) -->
                 <div class="modal-header-controls">
+                    <button class="btn btn-reset-map modal-btn-reset" id="modal-btn-reset-map" title="回到全臺灣視角並清除選取">
+                        <span>⌂ 回到全臺</span>
+                    </button>
                     <div class="modal-control-item">
                         <label for="modal-select-county">縣市</label>
                         <select id="modal-select-county" class="custom-select modal-select">
@@ -271,8 +270,9 @@
         <p>AIoT L3 HW1 · Data: <a href="https://opendata.cwa.gov.tw/" target="_blank" rel="noopener noreferrer">CWA Open Data</a></p>
     </footer>
 
-    <!-- Leaflet JS & Taiwan County Boundaries -->
+    <!-- Leaflet JS & MarkerCluster JS & Taiwan County Boundaries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
     <script src="tw_counties.js"></script>
     <script src="script.js"></script>
 </body>
